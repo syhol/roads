@@ -1,0 +1,7 @@
+(library
+ (name test_lib)
+ (libraries
+  alcotest
+  roads.lib
+ )
+ (synopsis "Tests for roads lib"))

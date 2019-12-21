@@ -1,0 +1,7 @@
+(executables
+ (names roads_main)
+ (public_names roads)
+ (libraries
+  roads.lib
+ )
+ (package roads))
