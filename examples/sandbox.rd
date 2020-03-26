@@ -2,32 +2,32 @@ import ../../globals
 import date
 import amqp as amqp
 
-export type EventQueue =
+type EventQueue = (
   connection: amqp.Connection
   channel: amqp.Channel
-  boundQueues: Map(String, amqp.Queue) = ()
-  bindingQueues: Map(String, amqp.Queue) = ()
-
-type PublishEvents = PublishingEvent(JSON) +> ()
+  boundQueues: Map<String, amqp.Queue> = Map()
+  bindingQueues: Map<String, amqp.Queue> = Map()
+)
 
 exchangeName = "ad_event_queue"
 
-export publishEvent = (queue: EventQueue, eventData: JSON) =>
-  PublishingEvent(eventData)
+publishEvent(queue: EventQueue, eventData: JSON) =>
+  publishingEvent(eventData)
   minute = eventData->jsonGet("data.time")
     ->case
-      (value: Number) => value->Date
-      (Else) => Date()
+      JsonNumber(value) => value->Date
+      Else => Date()
     ->setUTCSeconds(0)
     ->setUTCMilliseconds(0)
     ->getTime
   parentId = eventData->jsonGet("data.line_item")->case
-    (value: String) => value
-    (Else) => "0"
+    JsonString(value) => value
+    Else => "0"
   q = "new.events.${minute}.${eventData.entity_type}.${eventData.id}.${parentId}"
   sendEvent(queue, "events", eventData)
 
-export setBindTimeout = (queue: EventQueue, queueName: String) =>
+// Refactor this to be less javascript like
+setBindTimeout(queue: EventQueue, queueName: String) =>
   queue.boundQueues[queueName]->case (timeout: Timeout) => clearTimeout(timeout)
   queue.boundQueues[queueName] = setTimeout
     Seconds(65)
@@ -36,97 +36,183 @@ export setBindTimeout = (queue: EventQueue, queueName: String) =>
 type ErrorSendingEvent = (queueName: String, eventData: JSON, error: Error)
 type EventSent = (queueName: String)
 
-export sendEvent = (queue: EventQueue, queueName: String, eventData: JSON) =>
+sendEvent(queue: EventQueue, queueName: String, eventData: JSON) =>
   body = eventData->toString->toBuffer
   queue.channel->sendToQueue(queueName, body)->case
-    (error: Error) => ErrorSendingEvent(queueName, eventData, error)
-    (Else) => EventSent(queueName)
+    Error(error) => ErrorSendingEvent(queueName, eventData, error)
+    Else => EventSent(queueName)
 
-export connect = (queueURI: String) =>
-  connection = amqp.ConnectToBroker(queueURI)?
-  channel = amqp.CreateChannel(connection)?
-  amqp.AssertExchange(channel, exchangeName, "topic", durable = false)?
-  amqp.AssertQueue(channel, "events", autoDelete = false)?
+connect(queueURI: String) =>
+  connection = amqp.connectToBroker(queueURI)?
+  channel = amqp.createChannel(connection)?
+  amqp.assertExchange(channel, exchangeName, "topic", durable = false)?
+  amqp.assertQueue(channel, "events", autoDelete = false)?
   EventQueue((channel, connection)
 
-type PlusTenEvents =
-  | GetItem() +> Number
-  | YieldItem(Number) +> ()
+type getItem() => Number
+type yieldItem(item: Number) =|
 
-plusTen = (() => loop () => (GetItem() + 10)->YieldItem)()&
+plusTen() =>
+  (getItem() + 10)->yieldItem->plusTen
 
-test "plusTen can listen and await events" =>
-  plusTen
-    ->listenOnce(GetItem => 1)
-    ->listen(GetItem => 99)
-    ->listenOnce(GetItem => 2)
-  plusTen->waitFor(YieldItem)->shouldEqual(11)
-  plusTen->waitFor(YieldItem)->shouldEqual(12)
-  plusTen->waitFor(YieldItem)->shouldEqual(109)
-  plusTen->waitFor(YieldItem)->shouldEqual(109)
+test "plusTen can reply and await events" =>
+  plusTen = plusTen->bind(getItem() => 99)->spawn()
+  plusTen->replyOnce(getItem() => 1)
+  plusTen->waitFor(yieldItem).item->shouldEqual(11)
+  plusTen->replyOnce(getItem() => 2)
+  plusTen->waitFor(yieldItem).item->shouldEqual(12)
+  plusTen->waitFor(yieldItem).item->shouldEqual(109)
+  plusTen->waitFor(yieldItem).item->shouldEqual(109)
 
-type WarriorEvents =
-  | GetOpponent() +> (String | ())
-  | QueueOpponent(String) +> ()
+type getOpponent() => Data(Opponent(String) | NoOpponent)
+type queueOpponent(String) =|
 
-warrior = (name: String) =>
-  GetOpponent()->case
-    (opponent: String) => say "${name} beat ${opponent}\n"
-    () => QueueOpponent(name)
+warrior(name: String) =>
+  getOpponent()->case
+    Opponent(opponent) => say("${name} beat ${opponent}")
+    NoOpponent => queueOpponent(name)
 
-main = () =>
+main() =>
   battle: Queue(String) = Queue()
+  battleRules = [
+    getOpponent => battle->pop
+    queueOpponent(name) => battle->push(name)
+  ]
+
   ["Go", "C", "C++", "Java", "Perl", "Python"]
-    ->map((language) => warrior(language))&
-    ->listen
-      GetOpponent => battle->pop
-      QueueOpponent(name) => battle->push(name)
-    ->await
+    ->map((language) => warrior->bind(battleRules)->spawn(language))
+    ->awaitAll
 
 test "The languages should battle as pairs" =>
-  subject = main->async
-  subject->waitFor(WriteToStream).content->shouldEqual("Go beat C")
-  subject->waitFor(WriteToStream).content->shouldEqual("C++ beat Java")
-  subject->waitFor(WriteToStream).content->shouldEqual("Perl beat Python")
+  main = main()&
+  main->waitFor(writeToStream).content->shouldEqual("Go beat C")
+  main->waitFor(writeToStream).content->shouldEqual("C++ beat Java")
+  main->waitFor(writeToStream).content->shouldEqual("Perl beat Python")
 
-confirm = (question: String) =>
+confirm(question: String) =>
   say("${question} (y/n)")
-  loop () =>
-    stdin->readLine->toLowerCase->case
-      ("y"|"yes") => return True
-      ("n"|"no") => return False
-      (Else) => say("Please be clear: yes or no")
+  stdin->readLine->toLowerCase->case
+    ("y"|"yes") => True
+    ("n"|"no") => False
+    (Else) =>
+      say("Please be clear: yes or no")
+      confirm(question)
 
-deleteStuff = () =>
+deleteStuff() =>
   confirm("Should I delete all your important files?")->case
     (True) => say("I'm sorry Dave, I'm afraid I can't do that.")
     (False) => say("I think you know what the problem is just as well as I do.")
 
 test "delete stuff will keep asking until it gets a yes or no" =>
-  subject = deleteStuff->async
+  deleteStuff = deleteStuff()&
 
-  subject->waitFor(WriteToStream).content
+  deleteStuff->waitFor(writeToStream).content
     ->shouldEqual("Should I delete all your important files? (y/n)")
 
-  subject->listenOnce(ReadLineFromStream => "test")
-  subject->waitFor(WriteToStream).content
+  deleteStuff->replyOnce(readLineFromStream() => "test")
+  deleteStuff->waitFor(writeToStream).content
     ->shouldEqual("Please be clear: yes or no")
+  deleteStuff->waitFor(writeToStream).content
+    ->shouldEqual("Should I delete all your important files? (y/n)")
 
-  subject->listenOnce(ReadLineFromStream => "yes")
-  subject->waitFor(WriteToStream).content
+  deleteStuff->replyOnce(readLineFromStream() => "yes")
+  deleteStuff->waitFor(writeToStream).content
     ->shouldEqual("I'm sorry Dave, I'm afraid I can't do that.")
 
-  subject->await
+  deleteStuff->await
 
--- Annoying things
-return
+type toString<T>(T) => String
 
-say = (...items: ToString[]) =>
+type User(firstName: String, lastName: String, age: Number)
+
+toString<User>(user: User) =>
+  "${user.firstName} ${user.lastName}, Age: ${user.age}"
+
+say(...items: List(T)) where toString<T> =>
   items->map
-    (item) => item->toString->WriteToStream(stream = stdout)
+    (item) => item->toString->writeToStream(stream = stdout)
 
-logSomeStuff = () =>
-  (() => doThings(123))->async->listen
-    (event: WriteToStream) =>
-      log.info("Writing to stream", event)
-      event()
+test "can say what a user is" =>
+  User("Simon", "Holloway", 26)->say&
+    ->waitFor(writeToStream).content
+    ->shouldEqual("I'm sorry Dave, I'm afraid I can't do that.")
+
+logSomeStuff() =>
+  doThings(123)&->listen
+    writeToStream(content, stream) =>
+      log.info("Writing to stream", (content, stream))
+
+
+type AckPolicy = Data(AckNone | AckAll(wait: Number) | AckExplicit(wait: Number))
+type StartPolicy = Data(
+ | DeliverAll
+ | DeliverLast
+ | StartTime
+ | StreamSeq
+)
+type ReplayPolicy = Data(ReplayInstant | ReplayOriginal)
+
+type ConsumerConfig = Record(
+  ackPolicy: AckPolicy
+  startPolicy: StartPolicy
+  deliverySubject: Optional(String)
+  durable: String
+  filterSubject: String
+  maxDeliver: Number
+  replayPolicy: ReplayPolicy
+  sampleFrequency: Number
+)
+
+type InfoCollectionEvents =
+  | GatheringInfo(Http.Request) =|
+  | InfoGathered(count: Number) =|
+  | MappingInfo() =|
+  | InfoMapped() =|
+  | ReducingInfo() =|
+  | InfoReduced() =|
+
+type Repository<T> =
+  | create(record: T) => T
+  | findOne(query: Partial<T>) => T
+  | findMany(query: Partial<T>) => List<T>
+  | delete(query: Partial<T>) => Number
+  | update(query: Partial<T>, record: Partial<T>) => T
+  | createMany(query: List<T>) => List<T>
+  | updateMany(query: Partial<T>) => T
+
+
+type getCoordinatesFromAddress(String) => (Number, Number)
+
+storeService =
+  getStoreCoordinates(store) =>
+    getCoordinatesFromAddress(store->getAddress)
+
+googleMapsAdapter =
+  getCoordinatesFromAddress(address) =>
+    googleMapsApi.makeRequest({
+      apiKey = GOOGLE_API_KEY
+      address = address
+    })
+
+openStreetMapAdapter =
+  getCoordinatesFromAddress(address) =>
+    openStreetMapApi.makeRequest({
+      apiKey = OSM_API_KEY
+      address = address
+    })
+
+storeService
+  ->bind(googleMapsAdapter)
+  .getStoreCoordinates(store)
+
+openStreetMapAdapter
+  ->bindTo(storeService)
+  .getStoreCoordinates(store)
+
+-- User Service
+
+userService =
+  getUsers() =>
+    dbGetAll('users');
+
+userService.getUsers()

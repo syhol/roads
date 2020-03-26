@@ -1,9 +1,9 @@
 opam-version: "1.2"
-maintainer: "YOUR EMAIL ADDRESS"
-authors: ["YOUR NAME"]
-homepage: "https://github.com/USERNAME/proj"
-bug-reports: "https://github.com/USERNAME/proj/issues"
-dev-repo: "https://github.com/USERNAME/proj.git"
+maintainer: "simon@syhol.io"
+authors: ["Simon Holloway"]
+homepage: "https://github.com/syhol/roads"
+bug-reports: "https://github.com/syhol/roads/issues"
+dev-repo: "https://github.com/syhol/roads.git"
 
 build: [
   ["dune" "subst"] {pinned}
