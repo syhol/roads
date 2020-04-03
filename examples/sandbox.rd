@@ -11,27 +11,29 @@ type EventQueue = (
 
 exchangeName = "ad_event_queue"
 
+type publishingEvent(queue: EventQueue) =|
+
 publishEvent(queue: EventQueue, eventData: JSON) =>
   publishingEvent(eventData)
   minute = eventData->jsonGet("data.time")
     ->case
-      JsonNumber(value) => value->Date
+      JsonString(value) => value->dateFromString
+      JsonNumber(value) => value->dateFromUnixSeconds
       Else => Date()
     ->setUTCSeconds(0)
     ->setUTCMilliseconds(0)
-    ->getTime
+    ->getUnixSeconds
   parentId = eventData->jsonGet("data.line_item")->case
     JsonString(value) => value
     Else => "0"
   q = "new.events.${minute}.${eventData.entity_type}.${eventData.id}.${parentId}"
   sendEvent(queue, "events", eventData)
 
-// Refactor this to be less javascript like
 setBindTimeout(queue: EventQueue, queueName: String) =>
-  queue.boundQueues[queueName]->case (timeout: Timeout) => clearTimeout(timeout)
-  queue.boundQueues[queueName] = setTimeout
-    Seconds(65)
-    () => queue.boundQueues->removeItem(queueName)
+  queue.boundQueues[queueName]->case (fiber: Fiber) => destroyFiber(fiber)
+  queue.boundQueues[queueName] = spawn () =>
+    sleepFor(Seconds(65))
+    queue.boundQueues->removeItem(queueName)
 
 type ErrorSendingEvent = (queueName: String, eventData: JSON, error: Error)
 type EventSent = (queueName: String)
@@ -52,42 +54,43 @@ connect(queueURI: String) =>
 type getItem() => Number
 type yieldItem(item: Number) =|
 
-plusTen() =>
-  (getItem() + 10)->yieldItem->plusTen
+plusTen() => (getItem() + 10)->yieldItem->plusTen
 
 test "plusTen can reply and await events" =>
-  plusTen = plusTen->bind(getItem() => 99)->spawn()
-  plusTen->replyOnce(getItem() => 1)
-  plusTen->waitFor(yieldItem).item->shouldEqual(11)
-  plusTen->replyOnce(getItem() => 2)
-  plusTen->waitFor(yieldItem).item->shouldEqual(12)
-  plusTen->waitFor(yieldItem).item->shouldEqual(109)
-  plusTen->waitFor(yieldItem).item->shouldEqual(109)
+  plusTen()&->assertInteraction
+    getItem() => 1
+    yieldItem(item) => item->shouldEqual(11)
+    getItem() => 2
+    yieldItem(item) => item->shouldEqual(12)
+    getItem() => 99
+    yieldItem(item) => item->shouldEqual(109)
+    getItem() => 99
+    yieldItem(item) => item->shouldEqual(109)
 
 type getOpponent() => Data(Opponent(String) | NoOpponent)
-type queueOpponent(String) =|
+type queueOpponent(name: String) =|
 
 warrior(name: String) =>
   getOpponent()->case
     Opponent(opponent) => say("${name} beat ${opponent}")
     NoOpponent => queueOpponent(name)
 
-main() =>
+battleOfLanguages() =>
   battle: Queue(String) = Queue()
-  battleRules = [
+  battleRules = (
     getOpponent => battle->pop
     queueOpponent(name) => battle->push(name)
-  ]
+  )
 
   ["Go", "C", "C++", "Java", "Perl", "Python"]
     ->map((language) => warrior->bind(battleRules)->spawn(language))
     ->awaitAll
 
 test "The languages should battle as pairs" =>
-  main = main()&
-  main->waitFor(writeToStream).content->shouldEqual("Go beat C")
-  main->waitFor(writeToStream).content->shouldEqual("C++ beat Java")
-  main->waitFor(writeToStream).content->shouldEqual("Perl beat Python")
+  battleOfLanguages()&->assertInteraction
+    writeToStream(content) => content->shouldEqual("Go beat C")
+    writeToStream(content) => content->shouldEqual("C++ beat Java")
+    writeToStream(content) => content->shouldEqual("Perl beat Python")
 
 confirm(question: String) =>
   say("${question} (y/n)")
@@ -104,38 +107,27 @@ deleteStuff() =>
     (False) => say("I think you know what the problem is just as well as I do.")
 
 test "delete stuff will keep asking until it gets a yes or no" =>
-  deleteStuff = deleteStuff()&
-
-  deleteStuff->waitFor(writeToStream).content
-    ->shouldEqual("Should I delete all your important files? (y/n)")
-
-  deleteStuff->replyOnce(readLineFromStream() => "test")
-  deleteStuff->waitFor(writeToStream).content
-    ->shouldEqual("Please be clear: yes or no")
-  deleteStuff->waitFor(writeToStream).content
-    ->shouldEqual("Should I delete all your important files? (y/n)")
-
-  deleteStuff->replyOnce(readLineFromStream() => "yes")
-  deleteStuff->waitFor(writeToStream).content
-    ->shouldEqual("I'm sorry Dave, I'm afraid I can't do that.")
-
-  deleteStuff->await
+  deleteStuff()&->assertInteraction
+    writeToStream(content) => content->shouldEqual("Should I delete all your important files? (y/n)")
+    readLineFromStream => "test"
+    writeToStream(content) => content->shouldEqual("Please be clear: yes or no")
+    writeToStream(content) => content->shouldEqual("Should I delete all your important files? (y/n)")
+    readLineFromStream => "YES"
+    writeToStream(content) => content->shouldEqual("I'm sorry Dave, I'm afraid I can't do that.")
 
 type toString<T>(T) => String
 
 type User(firstName: String, lastName: String, age: Number)
 
-toString<User>(user: User) =>
-  "${user.firstName} ${user.lastName}, Age: ${user.age}"
+toString<User>(User(firstName, lastName, age)) => "${firstName} ${lastName}, Age: ${age}"
 
 say(...items: List(T)) where toString<T> =>
   items->map
     (item) => item->toString->writeToStream(stream = stdout)
 
 test "can say what a user is" =>
-  User("Simon", "Holloway", 26)->say&
-    ->waitFor(writeToStream).content
-    ->shouldEqual("I'm sorry Dave, I'm afraid I can't do that.")
+  User("Simon", "Holloway", 26)->say&->assertInteraction
+    writeToStream(content) => content->shouldEqual("Simon Holloway, Age: 26")
 
 logSomeStuff() =>
   doThings(123)&->listen
@@ -164,7 +156,7 @@ type ConsumerConfig = Record(
 )
 
 type InfoCollectionEvents =
-  | GatheringInfo(Http.Request) =|
+  | GatheringInfo(request: Http.Request) =|
   | InfoGathered(count: Number) =|
   | MappingInfo() =|
   | InfoMapped() =|
@@ -189,17 +181,17 @@ storeService =
 
 googleMapsAdapter =
   getCoordinatesFromAddress(address) =>
-    googleMapsApi.makeRequest({
+    googleMapsApi.makeRequest(
       apiKey = GOOGLE_API_KEY
       address = address
-    })
+    )
 
 openStreetMapAdapter =
   getCoordinatesFromAddress(address) =>
-    openStreetMapApi.makeRequest({
+    openStreetMapApi.makeRequest(
       apiKey = OSM_API_KEY
       address = address
-    })
+    )
 
 storeService
   ->bind(googleMapsAdapter)
