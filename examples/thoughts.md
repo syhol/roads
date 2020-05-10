@@ -4,6 +4,10 @@ What do we want to make easy?
 - Identifying and isolating side effects and coupling
 - Testing and writing clean code
 
+How do we avoid adoption problems
+- Easy to use
+- Familiar patterns
+
 What experience do we want to provide?
 - Elegant but lightweight syntax like MoonScript, CoffeeScript, Nim, Python and Haskell
 - Simple and fast tooling and debugging
