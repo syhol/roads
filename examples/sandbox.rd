@@ -4,7 +4,7 @@ require postgres
 require logger
 require https://github.com/antirez/redis/archive/5.0.9.zip as redis
 
-type EventQueue = record
+enum EventQueue
   connection: amqp.Connection
   channel: amqp.Channel
   boundQueues: Map<String, amqp.Queue> = Map()
@@ -38,8 +38,8 @@ setBindTimeout(queue: EventQueue, queueName: String) =>
     sleepFor(65->Seconds)
     queue.boundQueues->removeItem(queueName)
 
-type ErrorSendingEvent = alias (queueName: String, eventData: JSON, error: Error)
-type EventSent = alias (queueName: String)
+enum ErrorSendingEvent(queueName: String, eventData: JSON, error: Error)
+enum EventSent(queueName: String)
 
 sendEvent(queue: EventQueue, queueName: String, eventData: JSON) =>
   body = eventData->toString->toBuffer
@@ -153,10 +153,10 @@ test "delete stuff will keep asking until it gets a yes or no" =>
     -->send(#!ReadLine("YES"))
     -->shouldProduce(#!Say(("I'm sorry Dave, I'm afraid I can't do that.")
 
-type Stringable<T> = interface
+interface Stringable<T>
   toString(T) => String
 
-type User = alias (firstName: String, lastName: String, age: Number)
+enum User(firstName: String, lastName: String, age: Number)
 
 implement Stringable<User>
   toString(User(firstName, lastName, age)) => "${firstName} ${lastName}, Age: ${age}"
@@ -175,16 +175,16 @@ logSomeStuff() =>
       log.info("Writing to stream", (content, stream))
 
 
-type AckPolicy = enum AckNone | AckAll(wait: Number) | AckExplicit(wait: Number)
-type StartPolicy = enum
+AckPolicy = enum AckNone | AckAll(wait: Number) | AckExplicit(wait: Number)
+StartPolicy = enum
  | DeliverAll
  | DeliverLast
  | StartTime
  | StreamSeq
 
-type ReplayPolicy = enum ReplayInstant | ReplayOriginal
+ReplayPolicy = enum ReplayInstant | ReplayOriginal
 
-type ConsumerConfig = record
+enum ConsumerConfig
   ackPolicy: AckPolicy
   startPolicy: StartPolicy
   deliverySubject: Optional(String)
@@ -194,14 +194,14 @@ type ConsumerConfig = record
   replayPolicy: ReplayPolicy
   sampleFrequency: Number
 
-type InfoCollectionEvents = message #GatheringInfo(request: Http.Request)
-type InfoGathered = message #InfoGathered(count: Number)
-type MappingInfo = message #MappingInfo()
-type InfoMapped = message #InfoMapped()
-type ReducingInfo = message #ReducingInfo()
-type InfoReduced = message #InfoReduced()
+message GatheringInfo(request: Http.Request)
+message InfoGathered(count: Number)
+message MappingInfo
+message InfoMapped
+message ReducingInfo
+message InfoReduced
 
-type Repository<T> = interface
+interface Repository<T>
   create(record: T) => T
   findOne(query: Partial<T>): T = findMany(query)->elementAt(0)
   findMany(query: Partial<T>) => List<T>
@@ -232,7 +232,7 @@ httpPostUser(request: http.Request) => request->userFromHttpRequest->case
 
 -- With DI
 
-type getCoordinatesFromAddress(String) => (Number, Number)
+getCoordinatesFromAddress = alias (String) => (Number, Number)
 
 storeService(mapAdapter) => record
   getStoreCoordinates(store) =>
@@ -288,12 +288,12 @@ getStoreCoordinates(store)&
   -->pipe(openStreetMapAdapter()&)
   ->await
 
-type HttpHeader = alias (String, String)
-type HttpVerb = enum GET | POST | PATCH | PUT | DELETE
-type HttpRequest = record HttpRequest(HttpVerb, Uri, List<HttpHeader>, Stream<List<Bytes>>)
-type HttpResponse = record HttpResponse(Integer, List<HttpHeader>, Stream<List<Bytes>>)
-type SendHttpRequest = message SendHttpRequest(HttpRequest)
-type ReceiveHttpResponse = message ReceiveHttpResponse(HttpResponse)
+enum HttpHeader(String, String)
+HttpVerb = enum GET | POST | PATCH | PUT | DELETE
+enum HttpRequest(HttpVerb, Uri, List<HttpHeader>, Stream<List<Bytes>>)
+enum HttpResponse(Integer, List<HttpHeader>, Stream<List<Bytes>>)
+message SendHttpRequest(HttpRequest)
+message ReceiveHttpResponse(HttpResponse)
 
 makeHttpRequest(verb: HttpVerb, url: String) =>
   HttpRequest(verb, url, [], toByteStream(""))
@@ -303,7 +303,7 @@ sendHttpRequest(request: HttpRequest) =>
   receive->case
     #ReceiveHttpResponse(response) => response
 
-request(verb: HttpVerb, url: String) =>
+request(verb: HttpVerb, url: String): Coroutine<ReceiveHttpResponse, SendHttpRequest, HttpResponse> =>
   makeHttpRequest(verb, url)->sendHttpRequest()&-->bubble()
 
 R1 = request(GET, ‘https://example.com/1’)
