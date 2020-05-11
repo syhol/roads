@@ -2,6 +2,7 @@ What do we want to make easy?
 - Dependency inversion
 - Observability
 - Identifying and isolating side effects and coupling
+- Domain and infrastructure seperation
 - Testing and writing clean code
 
 How do we avoid adoption problems
@@ -21,3 +22,4 @@ Features that make it easier to write solid clean code
 Some extra nice bits for familiarity:
 - Standard imperative control flow
 - Mutable variables
+- Api inspired by dart and haskell

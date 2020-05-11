@@ -4,13 +4,15 @@ require postgres
 require logger
 require https://github.com/antirez/redis/archive/5.0.9.zip as redis
 
-enum EventQueue
+data EventQueue
   connection: amqp.Connection
   channel: amqp.Channel
   boundQueues: Map<String, amqp.Queue> = Map()
   bindingQueues: Map<String, amqp.Queue> = Map()
 
 exchangeName = "ad_event_queue"
+
+data PublishingEvent(JSON)
 
 publishEvent(queue: EventQueue, eventData: JSON) =>
   #PublishingEvent(eventData)
@@ -28,18 +30,21 @@ publishEvent(queue: EventQueue, eventData: JSON) =>
   q = "new.events.${minute}.${eventData.entity_type}.${eventData.id}.${parentId}"
   sendEvent(queue, "events", eventData)
 
-sleepFor(duration: Duration) =>
+data SetTimeout(Duration)
+data Timeout
+
+sleep(duration: Duration) =>
   #SetTimeout(duration)
-  receive->case(#Timeout => ())
+  receive->case Timeout => ()
 
 setBindTimeout(queue: EventQueue, queueName: String) =>
   queue.boundQueues[queueName]->case (fiber: Fiber) => destroyFiber(fiber)
   queue.boundQueues[queueName] = spawn () =>
-    sleepFor(65->Seconds)
+    65->Seconds->sleep
     queue.boundQueues->removeItem(queueName)
 
-enum ErrorSendingEvent(queueName: String, eventData: JSON, error: Error)
-enum EventSent(queueName: String)
+data ErrorSendingEvent(queueName: String, eventData: JSON, error: Error)
+data EventSent(queueName: String)
 
 sendEvent(queue: EventQueue, queueName: String, eventData: JSON) =>
   body = eventData->toString->toBuffer
@@ -56,29 +61,29 @@ connect(queueURI: String) =>
 
 
 plusTen() =>
-  receive->case #GiveItem(number: Number) => #YieldItem(number + 10)
+  receive->case GiveItem(number: Number) => #YieldItem(number + 10)
   plusTen()
 
 test "plusTen can reply and await events" =>
-  plusTen()
-    -->isTypeOf(Coroutine<Number, Number>)
-    -->send(#!GiveItem(1))
-    -->shouldProduce(#!YieldItem(11))
-    -->send(#!GiveItem(2))
-    -->shouldProduce(#!YieldItem(12))
-    -->send(#!GiveItem(99))
-    -->shouldProduce(#!YieldItem(109))
-    -->send(#!GiveItem(99))
-    -->shouldProduce(#!YieldItem(109))
+  plusTen()&
+    -->isTypeOf(Coroutine<Number, Number, Never>)
+    -->send(GiveItem(1))
+    -->shouldProduce(YieldItem(11))
+    -->send(GiveItem(2))
+    -->shouldProduce(YieldItem(12))
+    -->send(GiveItem(99))
+    -->shouldProduce(YieldItem(109))
+    -->send(GiveItem(99))
+    -->shouldProduce(YieldItem(109))
 
 warrior(name: String) =>
   receive->case
-    #Opponent(opponent: String) => say("${name} beat ${opponent}")
-    #NoOpponent => #QueueOpponent(name)
+    Opponent(opponent: String) => say("${name} beat ${opponent}")
+    NoOpponent => #QueueOpponent(name)
 
 battle() =>
   receive->case
-    #QueueOpponent(name: String) => #Opponent(name)
+    QueueOpponent(name: String) => #Opponent(name)
   battle()
 
 battleOfLanguages() =>
@@ -88,11 +93,11 @@ battleOfLanguages() =>
 
 test "The languages should battle as pairs" =>
   battleOfLanguages()&
-    -->shouldProduce(#!Say("Go beat C"))
-    -->shouldProduce(#!Say("C++ beat Java"))
-    -->shouldProduce(#!Say("Perl beat Python"))
+    -->shouldProduce(Say("Go beat C"))
+    -->shouldProduce(Say("C++ beat Java"))
+    -->shouldProduce(Say("Perl beat Python"))
 
-listener(name: String) => receive->case #Say(message) => say("${name}: ${message}")
+listener(name: String) => receive->case Say(data) => say("${name}: ${data}")
 
 fanIn() =>
   listener("listener 1")&
@@ -112,12 +117,15 @@ queueGroup() =>
     -->pipe(listener("listener 2")&)
     -->pipe(listener("listener 3")&)
 
+data RRReply(Number)
+data RRRequest(Number, Sink<RRReply>)
+
 reqRepRequester(value: Number) =>
-  #Request(value, this)
-  receive->case #Reply(newValue) => say("I got ${newValue}")
+  #RRRequest(value, this)
+  receive->case RRReply(newValue) => say("I got ${newValue}")
 
 reqRepReplyer() =>
-  receive->case #Request(value: Number, return: Coroutine<#Reply(Number), Any>) => return->send(#!Reply(value + 5))
+  receive->case RRRequest(value, reply) => reply->send(RRReply(value + 5))
 
 requestReply() =>
   example = spawn () =>
@@ -125,10 +133,10 @@ requestReply() =>
     reqRepRequester(20)
     reqRepRequester(30)
   example
-    -->pipe(reqRepReplyer())
-    -->shouldProduce(#!Say("I got 15"))
-    -->shouldProduce(#!Say("I got 25"))
-    -->shouldProduce(#!Say("I got 35"))
+    -->pipe(reqRepReplyer()&)
+    -->shouldProduce(Say("I got 15"))
+    -->shouldProduce(Say("I got 25"))
+    -->shouldProduce(Say("I got 35"))
 
 confirm(question: String) =>
   say("${question} (y/n)")
@@ -146,45 +154,47 @@ deleteStuff() =>
 
 test "delete stuff will keep asking until it gets a yes or no" =>
   deleteStuff()&
-    -->shouldProduce(#!Say(("Should I delete all your important files? (y/n)")
-    -->send(#!ReadLine("test"))
-    -->shouldProduce(#!Say(("Please be clear: yes or no")
-    -->shouldProduce(#!Say(("Should I delete all your important files? (y/n)")
-    -->send(#!ReadLine("YES"))
-    -->shouldProduce(#!Say(("I'm sorry Dave, I'm afraid I can't do that.")
+    -->shouldProduce(Say("Should I delete all your important files? (y/n)"))
+    -->send(ReadLine("test"))
+    -->shouldProduce(Say("Please be clear: yes or no"))
+    -->shouldProduce(Say("Should I delete all your important files? (y/n)"))
+    -->send(ReadLine("YES"))
+    -->shouldProduce(Say("I'm sorry Dave, I'm afraid I can't do that."))
 
 interface Stringable<T>
   toString(T) => String
 
-enum User(firstName: String, lastName: String, age: Number)
+data User(firstName: String, lastName: String, age: Number)
 
 implement Stringable<User>
   toString(User(firstName, lastName, age)) => "${firstName} ${lastName}, Age: ${age}"
 
+data Say(T) where Stringable<T>
+
 say(...items: List<T>) where Stringable<T> =>
   items->map
-    (item) => item->toString->writeToStream(stream = stdout)
+    (item) => item->toString->#Say
 
 test "can say what a user is" =>
   User("Simon", "Holloway", 26)->say&
-    -->shouldProduce(#!WriteToStream("Simon Holloway, Age: 26", stdin))
+    -->shouldProduce(Say("Simon Holloway, Age: 26"))
 
 logSomeStuff() =>
   doThings(123)&->listen
-    writeToStream(content, stream) =>
-      log.info("Writing to stream", (content, stream))
+    Say(content) =>
+      log.info("Writing to output: #{content}")
 
 
-AckPolicy = enum AckNone | AckAll(wait: Number) | AckExplicit(wait: Number)
-StartPolicy = enum
+AckPolicy = data AckNone | AckAll(wait: Number) | AckExplicit(wait: Number)
+StartPolicy = data
  | DeliverAll
  | DeliverLast
  | StartTime
  | StreamSeq
 
-ReplayPolicy = enum ReplayInstant | ReplayOriginal
+ReplayPolicy = data ReplayInstant | ReplayOriginal
 
-enum ConsumerConfig
+data ConsumerConfig
   ackPolicy: AckPolicy
   startPolicy: StartPolicy
   deliverySubject: Optional(String)
@@ -194,12 +204,12 @@ enum ConsumerConfig
   replayPolicy: ReplayPolicy
   sampleFrequency: Number
 
-message GatheringInfo(request: Http.Request)
-message InfoGathered(count: Number)
-message MappingInfo
-message InfoMapped
-message ReducingInfo
-message InfoReduced
+data GatheringInfo(request: Http.Request)
+data InfoGathered(count: Number)
+data MappingInfo
+data InfoMapped
+data ReducingInfo
+data InfoReduced
 
 interface Repository<T>
   create(record: T) => T
@@ -210,7 +220,7 @@ interface Repository<T>
   createMany(records: List<T>) => List<T>
   updateMany(query: Partial<T>, record: Partial<T>) => T
 
-pgUsers = postgres->table("users")
+pgUsers() = postgres->table("users")
 
 implement Repository<User> =
   create(record) => pgUsers()->insert(record)
@@ -227,8 +237,8 @@ userFromHttpRequest(request: http.Request): User =>
   age = jsonBody->getOrError("data.age")?
   User(firstName, lastName, age)
 
-httpPostUser(request: http.Request) => request->userFromHttpRequest->case
-  Ok(user) => create(user)
+httpPostUser(request: http.Request) =>
+  request->userFromHttpRequest?->create
 
 -- With DI
 
@@ -260,24 +270,27 @@ storeService(openStreetMapAdapter)
 
 -- With Coroutines
 
+data GetCoordinatesFromAddress(address: String)
+data Coordinates(Number, Number)
+
 getStoreCoordinates(store) =>
   #GetCoordinatesFromAddress(store->getAddress)
-  receive->case(#CoordinatesFromAddress(coordinates) => coordinates)
+  receive->case(coordinates: #Coordinates => coordinates)
 
 googleMapsAdapter() =>
-  receive->case (request: #GetCoordinatesFromAddress) =>
+  receive->case (request: GetCoordinatesFromAddress) =>
     googleMapsApi.makeRequest(
       apiKey = GOOGLE_API_KEY
       address = request.address
-    )->send(to = request.sender)
+    )->Coordinates->send(to = request.sender)
   googleMapsAdapter()
 
 openStreetMapAdapter() =>
-  receive->case (request: #GetCoordinatesFromAddress) =>
+  receive->case (request: GetCoordinatesFromAddress) =>
     openStreetMapApi.makeRequest(
       apiKey = OSM_API_KEY
       address = request.address
-    )->send(to = request.sender)
+    )->Coordinates->send(to = request.sender)
   openStreetMapAdapter()
 
 getStoreCoordinates(store)&
@@ -288,12 +301,12 @@ getStoreCoordinates(store)&
   -->pipe(openStreetMapAdapter()&)
   ->await
 
-enum HttpHeader(String, String)
-HttpVerb = enum GET | POST | PATCH | PUT | DELETE
-enum HttpRequest(HttpVerb, Uri, List<HttpHeader>, Stream<List<Bytes>>)
-enum HttpResponse(Integer, List<HttpHeader>, Stream<List<Bytes>>)
-message SendHttpRequest(HttpRequest)
-message ReceiveHttpResponse(HttpResponse)
+data HttpHeader(String, String)
+HttpVerb = data GET | POST | PATCH | PUT | DELETE
+data HttpRequest(HttpVerb, Uri, List<HttpHeader>, Stream<List<Bytes>>)
+data HttpResponse(Integer, List<HttpHeader>, Stream<List<Bytes>>)
+data SendHttpRequest(HttpRequest)
+data ReceiveHttpResponse(HttpResponse)
 
 makeHttpRequest(verb: HttpVerb, url: String) =>
   HttpRequest(verb, url, [], toByteStream(""))
@@ -301,7 +314,7 @@ makeHttpRequest(verb: HttpVerb, url: String) =>
 sendHttpRequest(request: HttpRequest) =>
   #SendHttpRequest(request)
   receive->case
-    #ReceiveHttpResponse(response) => response
+    ReceiveHttpResponse(response) => response
 
 request(verb: HttpVerb, url: String): Coroutine<ReceiveHttpResponse, SendHttpRequest, HttpResponse> =>
   makeHttpRequest(verb, url)->sendHttpRequest()&-->bubble()
@@ -310,3 +323,18 @@ R1 = request(GET, ‘https://example.com/1’)
 R2 = request(GET, ‘https://example.com/1’)
 R3 = request(GET, ‘https://example.com/1’)
 awaitAll(R1, R2, R3)
+
+-- How do we add message/event data to ADT?
+-- time, uuid, sender(module, file, line, coroutine)
+data ExampleADT(String)
+exampleCoroutine() =>
+  receive->case
+    (adt: ExampleADT) =>
+      say(adt.0)
+      say(adt@createdAt)
+
+test "data and metadata from a message"
+  exampleCoroutine()&
+    -->send(ExampleADT("Hey"))
+    -->shouldProduce(Say("Hey"))
+    -->shouldProduce(Say(???))
