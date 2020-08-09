@@ -8,11 +8,11 @@ living = True
 
 -- String Interpolation & Multiline strings
 say "Hello ${name}, you are ${age} years old
-and you are ${living ? "living" : "dead"}"
+and you are ${if living then "living" else "dead"}"
 
 -- Algrabraic data types
-type Gender = Male | Female
-gender = Male
+Gender = data Male | Female | Other(name: String)
+myGender = Male
 say "You are ${gender}"
 
 -- Tuples
@@ -107,5 +107,7 @@ say somethingThatMayError()->case (error: Error) =>
 
 say somethingThatMayError()?
 
+say somethingThatMayError()->default("Whoops, Something went wrong")
+
 -- Events
-type SomethingHappened() =|
+data SomethingHappened

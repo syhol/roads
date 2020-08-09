@@ -1,14 +1,20 @@
+#!/usr/local/bin roads-alpha --exe --syntax indent
+
 import ../../globals
-import amqp
-require postgres
+import amqpFactory
+import type amqp
+require postgres as pg
 require logger
 require https://github.com/antirez/redis/archive/5.0.9.zip as redis
+require getNow as time
+
+type getNow() => Integer
 
 data EventQueue
-  connection: amqp.Connection
-  channel: amqp.Channel
-  boundQueues: Map<String, amqp.Queue> = Map()
-  bindingQueues: Map<String, amqp.Queue> = Map()
+  connection: AMQPConnection
+  channel: AMQPChannel
+  boundQueues: Map<String, AMQPQueue> = Map()
+  bindingQueues: Map<String, AMQPQueue> = Map()
 
 exchangeName = "ad_event_queue"
 
@@ -20,7 +26,7 @@ publishEvent(queue: EventQueue, eventData: JSON) =>
     ->case
       JsonString(value) => value->dateFromString
       JsonNumber(value) => value->dateFromUnixSeconds
-      Else => Date()
+      Else => time()->dateFromUnixSeconds
     ->withUTCSeconds(0)
     ->withUTCMilliseconds(0)
     ->inUnixSeconds
@@ -30,18 +36,18 @@ publishEvent(queue: EventQueue, eventData: JSON) =>
   q = "new.events.${minute}.${eventData.entity_type}.${eventData.id}.${parentId}"
   sendEvent(queue, "events", eventData)
 
-data SetTimeout(Duration)
+data SetTimeout(Duration, Sink<Timeout>)
 data Timeout
-
-sleep(duration: Duration) =>
-  #SetTimeout(duration)
-  receive->case Timeout => ()
+data Cancel
 
 setBindTimeout(queue: EventQueue, queueName: String) =>
-  queue.boundQueues[queueName]->case (fiber: Fiber) => destroyFiber(fiber)
+  queue.boundQueues[queueName]->case
+    (job: Sink<Cancel>) => job->send(Cancel())
   queue.boundQueues[queueName] = spawn () =>
-    65->Seconds->sleep
-    queue.boundQueues->removeItem(queueName)
+    #SetTimeout(65->Seconds, this)
+    receive
+      Timeout => queue.boundQueues->removeItem(queueName)
+      Cancel => ()
 
 data ErrorSendingEvent(queueName: String, eventData: JSON, error: Error)
 data EventSent(queueName: String)
@@ -49,24 +55,26 @@ data EventSent(queueName: String)
 sendEvent(queue: EventQueue, queueName: String, eventData: JSON) =>
   body = eventData->toString->toBuffer
   queue.channel->sendToQueue(queueName, body)->case
-    Error(error) => ErrorSendingEvent(queueName, eventData, error)
+    (error: Error) => ErrorSendingEvent(queueName, eventData, error)
     Else => EventSent(queueName)
 
 connect(queueURI: String) =>
-  connection = amqp.connectToBroker(queueURI)?
-  channel = amqp.createChannel(connection)?
-  amqp.assertExchange(channel, exchangeName, "topic", durable = false)?
-  amqp.assertQueue(channel, "events", autoDelete = false)?
-  EventQueue((channel, connection)
+  connection = connectToBroker(queueURI)?
+  channel = createChannel(connection)?
+  assertExchange(channel, exchangeName, "topic", durable = false)?
+  assertQueue(channel, "events", autoDelete = false)?
+  EventQueue(channel, connection)
 
+data GiveItem(Number)
+data YieldItem(Number)
 
 plusTen() =>
-  receive->case GiveItem(number: Number) => #YieldItem(number + 10)
+  receive GiveItem(number: Number) => #YieldItem(number + 10)
   plusTen()
 
 test "plusTen can reply and await events" =>
   plusTen()&
-    -->isTypeOf(Coroutine<Number, Number, Never>)
+    -->isTypeOf(Coroutine<GiveItem, YieldItem, Never>)
     -->send(GiveItem(1))
     -->shouldProduce(YieldItem(11))
     -->send(GiveItem(2))
@@ -77,19 +85,20 @@ test "plusTen can reply and await events" =>
     -->shouldProduce(YieldItem(109))
 
 warrior(name: String) =>
-  receive->case
+  receive
     Opponent(opponent: String) => say("${name} beat ${opponent}")
     NoOpponent => #QueueOpponent(name)
 
 battle() =>
-  receive->case
+  receive
     QueueOpponent(name: String) => #Opponent(name)
   battle()
 
 battleOfLanguages() =>
   battleBuffer = battle()&
   ["Go", "C", "C++", "Java", "Perl", "Python"]
-    ->map((language) => battleBuffer | warrior(language)& | battleBuffer)
+    ->map (language) =>
+      battleBuffer | warrior(language)&^ | battleBuffer
 
 test "The languages should battle as pairs" =>
   battleOfLanguages()&
@@ -97,7 +106,7 @@ test "The languages should battle as pairs" =>
     -->shouldProduce(Say("C++ beat Java"))
     -->shouldProduce(Say("Perl beat Python"))
 
-listener(name: String) => receive->case Say(data) => say("${name}: ${data}")
+listener(name: String) => receive Say(data) => say("${name}: ${data}")
 
 fanIn() =>
   listener("listener 1")&
@@ -122,10 +131,10 @@ data RRRequest(Number, Sink<RRReply>)
 
 reqRepRequester(value: Number) =>
   #RRRequest(value, this)
-  receive->case RRReply(newValue) => say("I got ${newValue}")
+  receive RRReply(newValue) => say("I got ${newValue}")
 
 reqRepReplyer() =>
-  receive->case RRRequest(value, reply) => reply->send(RRReply(value + 5))
+  receive RRRequest(value, reply) => reply->send(RRReply(value + 5))
 
 requestReply() =>
   example = spawn () =>
@@ -204,12 +213,13 @@ data ConsumerConfig
   replayPolicy: ReplayPolicy
   sampleFrequency: Number
 
-data GatheringInfo(request: Http.Request)
-data InfoGathered(count: Number)
-data MappingInfo
-data InfoMapped
-data ReducingInfo
-data InfoReduced
+InfoEvents = data
+ | GatheringInfo(request: Http.Request)
+ | InfoGathered(count: Number)
+ | MappingInfo
+ | InfoMapped
+ | ReducingInfo
+ | InfoReduced
 
 interface Repository<T>
   create(record: T) => T
@@ -220,9 +230,9 @@ interface Repository<T>
   createMany(records: List<T>) => List<T>
   updateMany(query: Partial<T>, record: Partial<T>) => T
 
-pgUsers() = postgres->table("users")
+pgUsers() = pg->table("users")
 
-implement Repository<User> =
+implement Repository for User =
   create(record) => pgUsers()->insert(record)
   findMany(query) => pgUsers()->findMany(query)
   delete(query) => pgUsers()->delete(query)
@@ -232,9 +242,9 @@ implement Repository<User> =
 
 userFromHttpRequest(request: http.Request): User =>
   jsonBody = request.body->toJson
-  firstName = jsonBody->getOrError("data.first_name")?
-  lastName = jsonBody->getOrError("data.last_name")?
-  age = jsonBody->getOrError("data.age")?
+  firstName = jsonBody->getStringOrError("data.first_name")?
+  lastName = jsonBody->getStringOrError("data.last_name")?
+  age = jsonBody->getIntegerOrError("data.age")?
   User(firstName, lastName, age)
 
 httpPostUser(request: http.Request) =>
@@ -270,27 +280,27 @@ storeService(openStreetMapAdapter)
 
 -- With Coroutines
 
-data GetCoordinatesFromAddress(address: String)
+data GetCoordinatesFromAddress(address: String, reply: Sink<Coordinates>)
 data Coordinates(Number, Number)
 
 getStoreCoordinates(store) =>
-  #GetCoordinatesFromAddress(store->getAddress)
-  receive->case(coordinates: #Coordinates => coordinates)
+  #GetCoordinatesFromAddress(store->getAddress, this)
+  receive (coordinates: Coordinates) => coordinates
 
 googleMapsAdapter() =>
-  receive->case (request: GetCoordinatesFromAddress) =>
+  receive (request: GetCoordinatesFromAddress) =>
     googleMapsApi.makeRequest(
       apiKey = GOOGLE_API_KEY
       address = request.address
-    )->Coordinates->send(to = request.sender)
+    )->Coordinates->send(to = request.reply)
   googleMapsAdapter()
 
 openStreetMapAdapter() =>
-  receive->case (request: GetCoordinatesFromAddress) =>
+  receive (request: GetCoordinatesFromAddress) =>
     openStreetMapApi.makeRequest(
       apiKey = OSM_API_KEY
       address = request.address
-    )->Coordinates->send(to = request.sender)
+    )->Coordinates->send(to = request.reply)
   openStreetMapAdapter()
 
 getStoreCoordinates(store)&
@@ -305,36 +315,30 @@ data HttpHeader(String, String)
 HttpVerb = data GET | POST | PATCH | PUT | DELETE
 data HttpRequest(HttpVerb, Uri, List<HttpHeader>, Stream<List<Bytes>>)
 data HttpResponse(Integer, List<HttpHeader>, Stream<List<Bytes>>)
-data SendHttpRequest(HttpRequest)
-data ReceiveHttpResponse(HttpResponse)
 
 makeHttpRequest(verb: HttpVerb, url: String) =>
   HttpRequest(verb, url, [], toByteStream(""))
 
 sendHttpRequest(request: HttpRequest) =>
-  #SendHttpRequest(request)
-  receive->case
-    ReceiveHttpResponse(response) => response
+  #request
+  receive
+    (response: HttpResponse) => response
 
-request(verb: HttpVerb, url: String): Coroutine<ReceiveHttpResponse, SendHttpRequest, HttpResponse> =>
-  makeHttpRequest(verb, url)->sendHttpRequest()&-->bubble()
+request(verb: HttpVerb, url: String): Coroutine<HttpResponse, HttpRequest, HttpResponse> =>
+  makeHttpRequest(verb, url)->sendHttpRequest()&^
 
-R1 = request(GET, ‘https://example.com/1’)
-R2 = request(GET, ‘https://example.com/1’)
-R3 = request(GET, ‘https://example.com/1’)
+R1 = request(GET, "https://example.com/1")
+R2 = request(GET, "https://example.com/1")
+R3 = request(GET, "https://example.com/1")
 awaitAll(R1, R2, R3)
 
--- How do we add message/event data to ADT?
--- time, uuid, sender(module, file, line, coroutine)
-data ExampleADT(String)
-exampleCoroutine() =>
-  receive->case
-    (adt: ExampleADT) =>
-      say(adt.0)
-      say(adt@createdAt)
+--start
 
-test "data and metadata from a message"
-  exampleCoroutine()&
-    -->send(ExampleADT("Hey"))
-    -->shouldProduce(Say("Hey"))
-    -->shouldProduce(Say(???))
+--data
+
+--public
+
+--private
+
+--test
+
