@@ -1,11 +1,15 @@
 # A language to make it easy to write S.O.L.I.D, Observable code
 
 What do we want to make easy?
-- Dependency inversion
-- Observability
-- Identifying and isolating side effects and coupling
-- Decoupling Domain and Infrastructure
-- Testing and writing clean code
+- Writing quality code
+    - Dependency inversion
+    - Testing and writing clean code
+    - Decoupling Domain and Infrastructure
+    - Identifying and isolating side effects and coupling
+- Easy to understand, write and debug
+    - Observability
+    - IO
+    - Execution contexts
 
 How do we avoid adoption problems
 - Easy to use

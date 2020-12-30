@@ -6,92 +6,100 @@ import type amqp
 require postgres as pg
 require logger
 require https://github.com/antirez/redis/archive/5.0.9.zip as redis
-require getNow as time
+require GetNow as time
 
-type getNow() => Integer
+type GetNow() => Integer
 
-data EventQueue
+type EventQueue{
   connection: AMQPConnection
   channel: AMQPChannel
   boundQueues: Map<String, AMQPQueue> = Map()
   bindingQueues: Map<String, AMQPQueue> = Map()
+}
 
 exchangeName = "ad_event_queue"
 
-data PublishingEvent(JSON)
+type PublishingEvent{JSON}
 
 publishEvent(queue: EventQueue, eventData: JSON) =>
-  #PublishingEvent(eventData)
+  #PublishingEvent{eventData}
   minute = eventData->jsonGet("data.time")
     ->case
-      JsonString(value) => value->dateFromString
-      JsonNumber(value) => value->dateFromUnixSeconds
+      JsonString{value} => value->dateFromString
+      JsonNumber{value} => value->dateFromUnixSeconds
       Else => time()->dateFromUnixSeconds
     ->withUTCSeconds(0)
     ->withUTCMilliseconds(0)
     ->inUnixSeconds
   parentId = eventData->jsonGet("data.line_item")->case
-    JsonString(value) => value
+    JsonString{value} => value
     Else => "0"
-  q = "new.events.${minute}.${eventData.entity_type}.${eventData.id}.${parentId}"
+  entityType = eventData->jsonGet("entity_type")->stringOr("unknown")
+  eventId = eventData->jsonGet("id")->stringOr("unknown")
+  q = "new.events.${minute}.${entityType}.${eventId}.${parentId}"
   sendEvent(queue, "events", eventData)
 
-data SetTimeout(Duration, Sink<Timeout>)
-data Timeout
-data Cancel
+type SetTimeout{Duration, Sink<Timeout>}
+type Timeout
+type Cancel
 
 setBindTimeout(queue: EventQueue, queueName: String) =>
   queue.boundQueues[queueName]->case
-    (job: Sink<Cancel>) => job->send(Cancel())
+    (job: Sink<Cancel>) => job->send(Cancel)
   queue.boundQueues[queueName] = spawn () =>
-    #SetTimeout(65->Seconds, this)
+    #SetTimeout{65->Seconds, this}
     receive
       Timeout => queue.boundQueues->removeItem(queueName)
-      Cancel => ()
+      Cancel => {}
 
-data ErrorSendingEvent(queueName: String, eventData: JSON, error: Error)
-data EventSent(queueName: String)
+type SendEventResult =
+ | ErrorSendingEvent{queueName: String, eventData: JSON, error: Error}
+ | EventSent{queueName: String}
 
 sendEvent(queue: EventQueue, queueName: String, eventData: JSON) =>
   body = eventData->toString->toBuffer
   queue.channel->sendToQueue(queueName, body)->case
-    (error: Error) => ErrorSendingEvent(queueName, eventData, error)
-    Else => EventSent(queueName)
+    (error: Error) => ErrorSendingEvent{queueName, eventData, error}
+    Else => EventSent{queueName}
 
 connect(queueURI: String) =>
   connection = connectToBroker(queueURI)?
   channel = createChannel(connection)?
   assertExchange(channel, exchangeName, "topic", durable = false)?
   assertQueue(channel, "events", autoDelete = false)?
-  EventQueue(channel, connection)
+  EventQueue{channel, connection}
 
-data GiveItem(Number)
-data YieldItem(Number)
+data GiveItem{Number}
+data YieldItem{Number}
 
 plusTen() =>
-  receive GiveItem(number: Number) => #YieldItem(number + 10)
+  receive GiveItem{number} => #YieldItem{number + 10}
   plusTen()
 
 test "plusTen can reply and await events" =>
   plusTen()&
     -->isTypeOf(Coroutine<GiveItem, YieldItem, Never>)
-    -->send(GiveItem(1))
-    -->shouldProduce(YieldItem(11))
-    -->send(GiveItem(2))
-    -->shouldProduce(YieldItem(12))
-    -->send(GiveItem(99))
-    -->shouldProduce(YieldItem(109))
-    -->send(GiveItem(99))
-    -->shouldProduce(YieldItem(109))
+    -->send(GiveItem{1})
+    -->shouldProduce(YieldItem{11})
+    -->send(GiveItem{2})
+    -->shouldProduce(YieldItem{12})
+    -->send(GiveItem{99})
+    -->shouldProduce(YieldItem{109})
+    -->send(GiveItem{99})
+    -->shouldProduce(YieldItem{109})
+
+type Opponent{opponent: String}
+type NoOpponent
+type QueueOpponent{opponent: String}
 
 warrior(name: String) =>
   receive
-    Opponent(opponent: String) => say("${name} beat ${opponent}")
-    NoOpponent => #QueueOpponent(name)
+    Opponent{opponent} => say("${name} beat ${opponent}")
+    NoOpponent => #QueueOpponent{name}
 
 battle() =>
   receive
-    QueueOpponent(name: String) => #Opponent(name)
+    QueueOpponent{name} => #Opponent{name}
   battle()
 
 battleOfLanguages() =>
@@ -106,7 +114,7 @@ test "The languages should battle as pairs" =>
     -->shouldProduce(Say("C++ beat Java"))
     -->shouldProduce(Say("Perl beat Python"))
 
-listener(name: String) => receive Say(data) => say("${name}: ${data}")
+listener(name: String) => receive Say{data} => say("${name}: ${data}")
 
 fanIn() =>
   listener("listener 1")&
@@ -126,15 +134,15 @@ queueGroup() =>
     -->pipe(listener("listener 2")&)
     -->pipe(listener("listener 3")&)
 
-data RRReply(Number)
-data RRRequest(Number, Sink<RRReply>)
+type RRReply{Number}
+type RRRequest{Number, Sink<RRReply>}
 
 reqRepRequester(value: Number) =>
-  #RRRequest(value, this)
-  receive RRReply(newValue) => say("I got ${newValue}")
+  #RRRequest{value, this}
+  receive RRReply{newValue} => say("I got ${newValue}")
 
 reqRepReplyer() =>
-  receive RRRequest(value, reply) => reply->send(RRReply(value + 5))
+  receive RRRequest{value, reply} => reply->send(RRReply{value + 5})
 
 requestReply() =>
   example = spawn () =>
@@ -143,9 +151,9 @@ requestReply() =>
     reqRepRequester(30)
   example
     -->pipe(reqRepReplyer()&)
-    -->shouldProduce(Say("I got 15"))
-    -->shouldProduce(Say("I got 25"))
-    -->shouldProduce(Say("I got 35"))
+    -->shouldProduce(Say{"I got 15"})
+    -->shouldProduce(Say{"I got 25"})
+    -->shouldProduce(Say{"I got 35"})
 
 confirm(question: String) =>
   say("${question} (y/n)")
@@ -163,47 +171,47 @@ deleteStuff() =>
 
 test "delete stuff will keep asking until it gets a yes or no" =>
   deleteStuff()&
-    -->shouldProduce(Say("Should I delete all your important files? (y/n)"))
-    -->send(ReadLine("test"))
-    -->shouldProduce(Say("Please be clear: yes or no"))
-    -->shouldProduce(Say("Should I delete all your important files? (y/n)"))
-    -->send(ReadLine("YES"))
-    -->shouldProduce(Say("I'm sorry Dave, I'm afraid I can't do that."))
+    -->shouldProduce(Say{"Should I delete all your important files? (y/n)"})
+    -->send(ReadLine{"test"})
+    -->shouldProduce(Say{"Please be clear: yes or no"})
+    -->shouldProduce(Say{"Should I delete all your important files? (y/n)"})
+    -->send(ReadLine{"YES"})
+    -->shouldProduce(Say{"I'm sorry Dave, I'm afraid I can't do that."})
 
 interface Stringable<T>
   toString(T) => String
 
-data User(firstName: String, lastName: String, age: Number)
+type User{firstName: String, lastName: String, age: Number}
 
 implement Stringable<User>
-  toString(User(firstName, lastName, age)) => "${firstName} ${lastName}, Age: ${age}"
+  toString({firstName, lastName, age}) => "${firstName} ${lastName}, Age: ${age}"
 
-data Say(T) where Stringable<T>
+type Say{T} where Stringable<T>
 
 say(...items: List<T>) where Stringable<T> =>
   items->map
     (item) => item->toString->#Say
 
 test "can say what a user is" =>
-  User("Simon", "Holloway", 26)->say&
-    -->shouldProduce(Say("Simon Holloway, Age: 26"))
+  User{"Simon", "Holloway", 26}->say&
+    -->shouldProduce(Say{"Simon Holloway, Age: 26"})
 
 logSomeStuff() =>
   doThings(123)&->listen
-    Say(content) =>
-      log.info("Writing to output: #{content}")
+    Say{content} =>
+      log.info("Writing to output: ${content}")
 
 
-AckPolicy = data AckNone | AckAll(wait: Number) | AckExplicit(wait: Number)
-StartPolicy = data
+type AckPolicy = AckNone | AckAll{wait: Number} | AckExplicit{wait: Number}
+type StartPolicy =
  | DeliverAll
  | DeliverLast
  | StartTime
  | StreamSeq
 
-ReplayPolicy = data ReplayInstant | ReplayOriginal
+type ReplayPolicy = ReplayInstant | ReplayOriginal
 
-data ConsumerConfig
+type ConsumerConfig{
   ackPolicy: AckPolicy
   startPolicy: StartPolicy
   deliverySubject: Optional(String)
@@ -212,10 +220,11 @@ data ConsumerConfig
   maxDeliver: Number
   replayPolicy: ReplayPolicy
   sampleFrequency: Number
+}
 
-InfoEvents = data
- | GatheringInfo(request: Http.Request)
- | InfoGathered(count: Number)
+type InfoEvents =
+ | GatheringInfo{request: Http.Request}
+ | InfoGathered{count: Number}
  | MappingInfo
  | InfoMapped
  | ReducingInfo
@@ -223,7 +232,7 @@ InfoEvents = data
 
 interface Repository<T>
   create(record: T) => T
-  findOne(query: Partial<T>): T = findMany(query)->elementAt(0)
+  findOne(query: Partial<T>): T => findMany(query)->elementAt(0)
   findMany(query: Partial<T>) => List<T>
   delete(query: Partial<T>) => Number
   update(query: Partial<T>, record: Partial<T>) => T
@@ -245,32 +254,39 @@ userFromHttpRequest(request: http.Request): User =>
   firstName = jsonBody->getStringOrError("data.first_name")?
   lastName = jsonBody->getStringOrError("data.last_name")?
   age = jsonBody->getIntegerOrError("data.age")?
-  User(firstName, lastName, age)
+  User{firstName, lastName, age}
 
 httpPostUser(request: http.Request) =>
   request->userFromHttpRequest?->create
 
 -- With DI
 
-getCoordinatesFromAddress = alias (String) => (Number, Number)
+interface Store<T>
+  getAddress(T) => String
 
-storeService(mapAdapter) => record
-  getStoreCoordinates(store) =>
-    mapAdapter.getCoordinatesFromAddress(store->getAddress)
+type GetCoordinatesFromAddress
+type MapAdapter(String) => (Number, Number)
+type StoreService{
+  getCoordinatesFromAddress(Store) => (Number, Number)
+}
 
-googleMapsAdapter =
-  getCoordinatesFromAddress(address) =>
-    googleMapsApi.makeRequest(
-      apiKey = GOOGLE_API_KEY
-      address = address
-    )
+storeService(mapAdapter: MapAdapter) =>
+  StoreService{
+    getStoreCoordinates(store) =>
+      mapAdapter(store->getAddress)
+  }
 
-openStreetMapAdapter =
-  getCoordinatesFromAddress(address) =>
-    openStreetMapApi.makeRequest(
-      apiKey = OSM_API_KEY
-      address = address
-    )
+googleMapsAdapter(address) =>
+  googleMapsApi.makeRequest(
+    apiKey = GOOGLE_API_KEY
+    address = address
+  )
+
+openStreetMapAdapter(address) =>
+  openStreetMapApi.makeRequest(
+    apiKey = OSM_API_KEY
+    address = address
+  )
 
 storeService(googleMapsAdapter)
   .getStoreCoordinates(store)
@@ -280,11 +296,11 @@ storeService(openStreetMapAdapter)
 
 -- With Coroutines
 
-data GetCoordinatesFromAddress(address: String, reply: Sink<Coordinates>)
-data Coordinates(Number, Number)
+type GetCoordinatesFromAddress(address: String, reply: Sink<Coordinates>)
+type Coordinates(Number, Number)
 
 getStoreCoordinates(store) =>
-  #GetCoordinatesFromAddress(store->getAddress, this)
+  #GetCoordinatesFromAddress{store->getAddress, this}
   receive (coordinates: Coordinates) => coordinates
 
 googleMapsAdapter() =>
@@ -311,13 +327,13 @@ getStoreCoordinates(store)&
   -->pipe(openStreetMapAdapter()&)
   ->await
 
-data HttpHeader(String, String)
-HttpVerb = data GET | POST | PATCH | PUT | DELETE
-data HttpRequest(HttpVerb, Uri, List<HttpHeader>, Stream<List<Bytes>>)
-data HttpResponse(Integer, List<HttpHeader>, Stream<List<Bytes>>)
+type HttpHeader{String, String}
+type HttpVerb = GET | POST | PATCH | PUT | DELETE
+type HttpRequest{HttpVerb, Uri, List<HttpHeader>, Stream<List<Bytes>>}
+type HttpResponse{Integer, List<HttpHeader>, Stream<List<Bytes>>}
 
 makeHttpRequest(verb: HttpVerb, url: String) =>
-  HttpRequest(verb, url, [], toByteStream(""))
+  HttpRequest{verb, url, [], toByteStream("")}
 
 sendHttpRequest(request: HttpRequest) =>
   #request
@@ -332,6 +348,31 @@ R2 = request(GET, "https://example.com/1")
 R3 = request(GET, "https://example.com/1")
 awaitAll(R1, R2, R3)
 
+deep = {
+  nested = {
+    object = {
+      many = {
+        levels = {
+          value = 99
+        }
+      }
+    }
+  }
+}
+
+incrementValue(data) =>
+  deep{
+    nested{
+      object{
+        many{
+          levels{
+            value = value + 1
+          }
+        }
+      }
+    }
+  }
+
 --start
 
 --data
@@ -341,4 +382,3 @@ awaitAll(R1, R2, R3)
 --private
 
 --test
-
