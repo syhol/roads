@@ -1,0 +1,46 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "Roads",
+	"patterns": [
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#strings"
+		},
+		{
+			"include": "#backticks"
+		}
+	],
+	"repository": {
+		"keywords": {
+			"patterns": [{
+				"name": "keyword.control.roads",
+				"match": "\\b(if|in|else|then)\\b"
+			}]
+		},
+		"strings": {
+			"name": "string.quoted.double.roads",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.roads",
+					"match": "\\\\."
+				}
+			]
+		},
+		"backticks": {
+			"name": "string.quoted.backticks.roads",
+			"begin": "`",
+			"end": "`",
+			"patterns": [
+				{
+					"name": "constant.character.escape.roads",
+					"match": "\\\\."
+				}
+			]
+		}
+	},
+	"scopeName": "source.roads"
+}

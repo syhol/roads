@@ -1,0 +1,25 @@
+{
+    "name": "roads",
+    "displayName": "rd",
+    "description": "Roads",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.52.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [{
+            "id": "roads",
+            "aliases": ["Roads", "roads"],
+            "extensions": ["rd"],
+            "configuration": "./language-configuration.json"
+        }],
+        "grammars": [{
+            "language": "roads",
+            "scopeName": "source.roads",
+            "path": "./syntaxes/roads.tmLanguage.json"
+        }]
+    }
+}

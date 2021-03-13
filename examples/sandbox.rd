@@ -183,7 +183,7 @@ interface Stringable<T>
 
 type User{firstName: String, lastName: String, age: Number}
 
-implement Stringable<User>
+implement Stringable for User
   toString({firstName, lastName, age}) => "${firstName} ${lastName}, Age: ${age}"
 
 type Say{T} where Stringable<T>
@@ -241,7 +241,7 @@ interface Repository<T>
 
 pgUsers() = pg->table("users")
 
-implement Repository for User =
+implement Repository for User
   create(record) => pgUsers()->insert(record)
   findMany(query) => pgUsers()->findMany(query)
   delete(query) => pgUsers()->delete(query)
@@ -270,11 +270,9 @@ type StoreService{
   getCoordinatesFromAddress(Store) => (Number, Number)
 }
 
-storeService(mapAdapter: MapAdapter) =>
-  StoreService{
-    getStoreCoordinates(store) =>
-      mapAdapter(store->getAddress)
-  }
+storeService(mapAdapter: MapAdapter) => StoreService{
+  getStoreCoordinates(store) => mapAdapter(store->getAddress)
+}
 
 googleMapsAdapter(address) =>
   googleMapsApi.makeRequest(

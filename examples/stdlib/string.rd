@@ -5,7 +5,7 @@ isDigit
 isSpace
 isLowerCase
 isUpperCase
-isEmpty
+isEmpty  // Emptiable
 isEmptyOrWhitespace
 
 Finding Substrings:
@@ -15,7 +15,7 @@ contains
 firstIndexOf
 lastIndexOf
 allIndicesOf
-count
+count // Countable
 
 Convert:
 toLowerCase

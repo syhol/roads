@@ -1,4 +1,2 @@
-*~
-_build
-.merlin
-*.install
+.vscode
+node_modules

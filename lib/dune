@@ -1,8 +1,0 @@
-(library
- (name roads)
- (public_name roads.lib)
- (libraries
-  unix
-  str
- )
- (synopsis "This is a short description of the sub2 library."))
