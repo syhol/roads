@@ -12,7 +12,7 @@ Finding Substrings:
 startsWith
 endsWith
 contains
-firstIndexOf
+indexOf
 lastIndexOf
 allIndicesOf
 count // Countable

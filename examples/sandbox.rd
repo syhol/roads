@@ -310,7 +310,7 @@ googleMapsAdapter() =>
   googleMapsAdapter()
 
 openStreetMapAdapter() =>
-  receive (request: GetCoordinatesFromAddress) =>
+  receive GetCoordinatesFromAddress as request =>
     openStreetMapApi.makeRequest(
       apiKey = OSM_API_KEY
       address = request.address
@@ -333,18 +333,17 @@ type HttpResponse{Integer, List<HttpHeader>, Stream<List<Bytes>>}
 makeHttpRequest(verb: HttpVerb, url: String) =>
   HttpRequest{verb, url, [], toByteStream("")}
 
-sendHttpRequest(request: HttpRequest) =>
+sendHttpRequest(request: HttpRequest): HttpResponse =>
   #request
-  receive
-    (response: HttpResponse) => response
+  receive HttpResponse
 
 request(verb: HttpVerb, url: String): Coroutine<HttpResponse, HttpRequest, HttpResponse> =>
-  makeHttpRequest(verb, url)->sendHttpRequest()&^
+  makeHttpRequest(verb, url)->sendHttpRequest()
 
-R1 = request(GET, "https://example.com/1")
-R2 = request(GET, "https://example.com/1")
-R3 = request(GET, "https://example.com/1")
-awaitAll(R1, R2, R3)
+R1 = request(GET, "https://example.com/1")&^
+R2 = request(GET, "https://example.com/1")&^
+R3 = request(GET, "https://example.com/1")&^
+awaitAll([R1, R2, R3])
 
 deep = {
   nested = {

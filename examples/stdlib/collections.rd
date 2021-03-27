@@ -1,11 +1,11 @@
 
 // Generators
-iterate<T>(init: T, generator: ((T) => T)) => Generator<T>
-repeat<T>(item: T) => Generator<T>
-cycle<T, E>(items: T<E>) => Generator<E>
+iterate<T>(T, T => T) => Generator<T>
+repeat<T>(T) => Generator<T>
+cycle<T, E>(T<E>) => Generator<E>
 
 interface Listable<T>
-  toList(T) => List
+  toList<E>(T<E>) => List<E>
 
 interface IndexedSequence<T: Sequence>
   elementAt<E>(T<E>, Integer) => Optional<E>
@@ -14,21 +14,21 @@ interface IndexedSequence<T: Sequence>
 // Maybe infinite, sequentially ordered collection
 interface Sequence<T: Listable>
   head<E>(T<E>) => Optional<E>
-  tail(T) => T
+  tail<E>(T<E>) => T<E>
   next<E>(T<E>) => Optional<{E, T<E>}>
-  take(T, Integer) => T
-  takeWhile(T, ((T) => Boolean)) => T
-  skip(T, Integer) => T
-  skipWhile(T, ((T) => Boolean)) => T
+  take<E>(T<E>, Integer) => T<E>
+  takeWhile<E>(T<E>, E => Boolean) => T<E>
+  skip<E>(T, Integer) => T
+  skipWhile<E>(T<E>, E => Boolean) => T<E>
 
 // Finite, sequentially ordered collection
 interface Collection<T: Sequence>
   last<E>(T<E>) => Optional<E>
-  init(T) => T
-  skipLast(T, Integer) => T
-  skipLastWhile(T, ((T) => Boolean)) => T
-  takeLast(T, Integer) => T
-  takeLastWhile(T, ((T) => Boolean)) => T
+  init<E>(T<E>) => T<E>
+  skipLast<E>(T<E>, Integer) => T<E>
+  skipLastWhile<E>(T<E>, E => Boolean) => T<E>
+  takeLast<E>(T<E>, Integer) => T<E>
+  takeLastWhile<E>(T<E>, E => Boolean) => T<E>
 
 Eager collection - List - Implements Collection
 Lazy collection - Generator e.g. Range - Implements Sequence
@@ -41,7 +41,7 @@ implement Collection for List
 ---
 
 interface Countable<T>
-  count(countable: T) => Integer
+  count(T) => Integer
 
 interface Emptiable<T>
   isEmpty(T) => Boolean
@@ -51,29 +51,31 @@ interface Concatenatable<T>
   concat(T, T) => T
 
 interface Mappable<T>
-  map<A, B>(mappable: T<A>, (item: A) => B) => T<B>
-  each<E>(mappable: T<E>, (item: E) => {}) => T<E>
+  map<A, B>(T<A>, A => B) => T<B>
+  each<E>(T<E>, E => discard) => T<E>
 
 interface Expandable<T: Mappable & Concatenatable & Emptiable>
-  expand<A, B>(mappable: T<A>, (item: A) => T<A>) => T<B>
-  filter<E>(mappable: T<E>, (item: E) => Boolean) => T<E>
+  expand<A, B>(T<A>, A => T<A>) => T<B>
+  filter<E>(T<E>, E => Boolean) => T<E>
 
-interface Membership<T, E: Eq>
-  contains(haystack: T<E>, needle: E) => Boolean
-  containsAll<Q: Foldable<E>>(haystack: T<E>, needles: Q) => Boolean
+interface Membership<T>
+  contains<E: Eq>(T<E>, E) => Boolean
+  containsAll<E: Eq, Q: Foldable<E>>(T<E>, Q) => Boolean
+  containsAny<E: Eq, Q: Foldable<E>>(T<E>, Q) => Boolean
 
 interface Foldable<T: Emptiable & Countable & Listable & Membership>
-  reduce<A, B>(foldable: T<A>, reducer: (acc: B, next: A) => B) => Optional<B>
-  reduceRight<A, B>(foldable: T<A>, reducer: (next: A, acc: B) => B) => Optional<B>
-  fold<A, B>(foldable: T<A>, initial: B, reducer: (acc: B, next: A) => B) => B
-  foldRight<A, B>(foldable: T<A>, initial: B, reducer: (next: A, acc: B) => B) => B
-  find<E>(foldable: T<E>, check: (next: E) => Boolean) => Optional<E>
-  any<E>(foldable: T<E>, check: (next: E) => Boolean) => Boolean
-  all<E>(foldable: T<E>, check: (next: E) => Boolean) => Boolean
-  maximum<E: Ordinal>(foldable: T<E>) => E
-  minimum<E: Ordinal>(foldable: T<E>) => E
-  sum<E: Number>(foldable: T<E>) => E
-  product<E: Number>(foldable: T<E>) => E
+  reduce<A, B>(T<A>, (B, A) => B) => Optional<B>
+  reduceRight<A, B>(T<A>, (A, B) => B) => Optional<B>
+  fold<A, B>(T<A>, B, (B, A) => B) => B
+  foldRight<A, B>(T<A>, B, (A, B) => B) => B
+  find<E>(T<E>, E => Boolean) => Optional<E>
+  any<E>(T<E>, E => Boolean) => Boolean
+  all<E>(T<E>, E => Boolean) => Boolean
+  maximum<E: Ordinal>(T<E>) => E
+  minimum<E: Ordinal>(T<E>) => E
+  sum<E: Number>(T<E>) => E
+  product<E: Number>(T<E>) => E
+  flat<E: Concatenatable>(T<E>) => E
 
 implement Countable for Foldable
   count(countable) => countable->fold(0, (count, item) => count + 1)
