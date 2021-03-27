@@ -1,0 +1,22 @@
+function greet(name: String, day: String): String {
+    return "Hello ${name}, today is ${day}."
+}
+
+function main() {
+    let message = greet("Bob", "Tuesday")
+    print(message)
+}
+
+function control1(message: String) {
+    if String.contains(message, "Bob")  {
+        return "Bob is here"
+    }
+    return "Bob is not here"
+}
+
+function control1(message: String) {
+    if String.contains(message, "Bob")  {
+        return "Bob is here"
+    }
+    return "Bob is not here"
+}
