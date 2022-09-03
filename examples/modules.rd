@@ -1,5 +1,5 @@
 // postgresProvider.rd
-require postgres
+require Postgres
 require PostgresConfig as config
 
 type PostgresConfig{
@@ -9,7 +9,7 @@ type PostgresConfig{
   port: Number
 }
 
-bind dependency postgres/instance to postgres.connect(config)
+bind instanceof Postgres to Postgres(config)
 
 // appConfig.rd
 require config show {resolveDefinition, getHelpText}

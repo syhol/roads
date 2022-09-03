@@ -19,7 +19,7 @@ say """Hello ${name}, you are ${age} years old
 and you are ${if living then "alive" else "dead"}"""
 
 -- Algrabraic data types
-Gender = data Male | Female | Other{name: String}
+type Gender = Male | Female | Other{name: String}
 myGender = Male
 say "You are ${gender}"
 
@@ -132,4 +132,4 @@ say somethingThatMayError()?
 say somethingThatMayError()->default("Whoops, Something went wrong")
 
 -- Events
-data SomethingHappened
+type SomethingHappened

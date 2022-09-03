@@ -1,0 +1,105 @@
+
+service = (id: String) => {
+  apiVersion = "v1"
+  kind = "Service"
+  metadata = {
+    name = id
+    labels = {
+      app = id # by convention
+      domain = "prod" # always the same in the given files
+      component = String # varies per directory
+    }
+  }
+  spec = {
+    # Any port has the following properties.
+    ports = [{
+      port = Integer
+      protocol = Enum(["TCP", "UDP"]) & Default("TCP")   # from the Kubernetes definition
+      name = Default("client")
+    }]
+    selector = metadata.labels # we want those to be the same
+  }
+}
+
+Property<T> = {
+  name = String
+  default = Optional<T>
+  validators =
+}
+
+Default<T> = (property: Property<T>, default: T): Property<T> =>
+  return property & { default = Some(default) }
+
+deployment = (id: String) => {
+  apiVersion = "apps/v1"
+  kind = "Deployment"
+  metadata.name = id
+  spec = {
+    # 1 is the default, but we allow any number
+    replicas = Default(1)
+    template = {
+      metadata.labels = {
+        app = id
+        domain = "prod"
+        component = String
+      }
+      # we always have one namesake container
+      spec.containers[].name = id
+    }
+  }
+}
+
+deployment.foo = deployment() & { metadata.labels.component = "thing" }
+deployment.bar = {}
+service.foo = {}
+service.bar = {}
+
+# VS
+
+package kube
+
+service: [ID=_]: {
+  apiVersion: "v1"
+  kind:    "Service"
+  metadata: {
+    name: ID
+    labels: {
+      app:    ID  // by convention
+      domain:  "prod" // always the same in the given files
+      component: string // varies per directory
+    }
+  }
+  spec: {
+    // Any port has the following properties.
+    ports: [...{
+      port:    int
+      protocol:  *"TCP" | "UDP"   // from the Kubernetes definition
+      name:    string | *"client"
+    }]
+    selector: metadata.labels // we want those to be the same
+  }
+}
+
+deployment: [ID=_]: {
+  apiVersion: "apps/v1"
+  kind:    "Deployment"
+  metadata: name: ID
+  spec: {
+    // 1 is the default, but we allow any number
+    replicas: *1 | int
+    template: {
+      metadata: labels: {
+        app:    ID
+        domain:  "prod"
+        component: string
+      }
+      // we always have one namesake container
+      spec: containers: [{ name: ID }]
+    }
+  }
+}
+
+deployment.foo = {}
+deployment.bar = {}
+service.foo = {}
+service.bar = {}

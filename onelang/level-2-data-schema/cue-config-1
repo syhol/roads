@@ -1,0 +1,50 @@
+
+## A spec is of type Spec
+spec = Spec
+spec = {
+  knid = "Homo Sapiens" # error, misspelled field
+
+  name.first = "Jane"
+  name.last =  "Doe"
+}
+
+--private
+
+Spec = {
+  kind = String
+
+  name = {
+    first = String & != ""  # must be specified and non-empty
+    middle? = String & != ""  # optional, but must be non-empty when specified
+    last = String & != ""
+  }
+
+  # The minimum must be strictly smaller than the maximum and vice versa.
+  minimum? = Integer & <maximum
+  maximum? = Integer & >minimum
+}
+
+# VS
+
+#Spec: {
+  kind: string
+
+  name: {
+    first:   !=""  // must be specified and non-empty
+    middle?: !=""  // optional, but must be non-empty when specified
+    last:    !=""
+  }
+
+  // The minimum must be strictly smaller than the maximum and vice versa.
+  minimum?: int & <maximum
+  maximum?: int & >minimum
+}
+
+// A spec is of type #Spec
+spec: #Spec
+spec: {
+  knid: "Homo Sapiens" // error, misspelled field
+
+  name: first: "Jane"
+  name: last:  "Doe"
+}

@@ -1,8 +1,11 @@
 #!/usr/local/bin roads-alpha --exe --syntax indent
 
+// Import values and behaviour you want tight coupling to
 import ../../globals
 import amqpFactory
 import type amqp
+
+// Depend on interfaces and require injected behaviour and values without coupling to the concrete
 require postgres as pg
 require logger
 require https://github.com/antirez/redis/archive/5.0.9.zip as redis
@@ -22,7 +25,7 @@ exchangeName = "ad_event_queue"
 type PublishingEvent{JSON}
 
 publishEvent(queue: EventQueue, eventData: JSON) =>
-  #PublishingEvent{eventData}
+  emit PublishingEvent{eventData}
   minute = eventData->jsonGet("data.time")
     ->case
       JsonString{value} => value->dateFromString
@@ -47,7 +50,7 @@ setBindTimeout(queue: EventQueue, queueName: String) =>
   queue.boundQueues[queueName]->case
     (job: Sink<Cancel>) => job->send(Cancel)
   queue.boundQueues[queueName] = spawn () =>
-    #SetTimeout{65->Seconds, this}
+    emit SetTimeout{65->Seconds, this}
     receive
       Timeout => queue.boundQueues->removeItem(queueName)
       Cancel => {}
@@ -63,6 +66,9 @@ sendEvent(queue: EventQueue, queueName: String, eventData: JSON) =>
     Else => EventSent{queueName}
 
 connect(queueURI: String) =>
+  onError (error) => ConnectionError{"Could not connect to the queue", error}
+  onOk {}
+  onFinish connection->close()
   connection = connectToBroker(queueURI)?
   channel = createChannel(connection)?
   assertExchange(channel, exchangeName, "topic", durable = false)?
@@ -73,7 +79,7 @@ data GiveItem{Number}
 data YieldItem{Number}
 
 plusTen() =>
-  receive GiveItem{number} => #YieldItem{number + 10}
+  receive GiveItem{number} => emit YieldItem{number + 10}
   plusTen()
 
 test "plusTen can reply and await events" =>
@@ -95,11 +101,11 @@ type QueueOpponent{opponent: String}
 warrior(name: String) =>
   receive
     Opponent{opponent} => say("${name} beat ${opponent}")
-    NoOpponent => #QueueOpponent{name}
+    NoOpponent => emit QueueOpponent{name}
 
 battle() =>
   receive
-    QueueOpponent{name} => #Opponent{name}
+    QueueOpponent{name} => emit Opponent{name}
   battle()
 
 battleOfLanguages() =>
@@ -110,9 +116,9 @@ battleOfLanguages() =>
 
 test "The languages should battle as pairs" =>
   battleOfLanguages()&
-    -->shouldProduce(Say("Go beat C"))
-    -->shouldProduce(Say("C++ beat Java"))
-    -->shouldProduce(Say("Perl beat Python"))
+    -->shouldProduce(Say{"Go beat C"})
+    -->shouldProduce(Say{"C++ beat Java"})
+    -->shouldProduce(Say{"Perl beat Python"})
 
 listener(name: String) => receive Say{data} => say("${name}: ${data}")
 
@@ -138,7 +144,7 @@ type RRReply{Number}
 type RRRequest{Number, Sink<RRReply>}
 
 reqRepRequester(value: Number) =>
-  #RRRequest{value, this}
+  emit RRRequest{value, this}
   receive RRReply{newValue} => say("I got ${newValue}")
 
 reqRepReplyer() =>
@@ -186,11 +192,11 @@ type User{firstName: String, lastName: String, age: Number}
 implement Stringable for User
   toString({firstName, lastName, age}) => "${firstName} ${lastName}, Age: ${age}"
 
-type Say{T} where Stringable<T>
+type Say<T: Stringable>{T}
 
-say(...items: List<T>) where Stringable<T> =>
+say<T: Stringable>(items: T) =>
   items->map
-    (item) => item->toString->#Say
+    (item) => item->toString->Say->emit
 
 test "can say what a user is" =>
   User{"Simon", "Holloway", 26}->say&
@@ -214,7 +220,7 @@ type ReplayPolicy = ReplayInstant | ReplayOriginal
 type ConsumerConfig{
   ackPolicy: AckPolicy
   startPolicy: StartPolicy
-  deliverySubject: Optional(String)
+  deliverySubject: Optional{String}
   durable: String
   filterSubject: String
   maxDeliver: Number
@@ -250,6 +256,7 @@ implement Repository for User
   updateMany(query, records) => pgUsers()->updateMany(query, records)
 
 userFromHttpRequest(request: http.Request): User =>
+  onError ParseError{"Could not get user from HTTP request"}
   jsonBody = request.body->toJson
   firstName = jsonBody->getStringOrError("data.first_name")?
   lastName = jsonBody->getStringOrError("data.last_name")?
@@ -265,9 +272,9 @@ interface Store<T>
   getAddress(T) => String
 
 type GetCoordinatesFromAddress
-type MapAdapter(String) => (Number, Number)
+type MapAdapter(String) => {Number, Number}
 type StoreService{
-  getCoordinatesFromAddress(Store) => (Number, Number)
+  getCoordinatesFromAddress(Store) => {Number, Number}
 }
 
 storeService(mapAdapter: MapAdapter) => StoreService{
@@ -298,7 +305,7 @@ type GetCoordinatesFromAddress(address: String, reply: Sink<Coordinates>)
 type Coordinates(Number, Number)
 
 getStoreCoordinates(store) =>
-  #GetCoordinatesFromAddress{store->getAddress, this}
+  emit GetCoordinatesFromAddress{store->getAddress, this}
   receive (coordinates: Coordinates) => coordinates
 
 googleMapsAdapter() =>
@@ -330,11 +337,11 @@ type HttpVerb = GET | POST | PATCH | PUT | DELETE
 type HttpRequest{HttpVerb, Uri, List<HttpHeader>, Stream<List<Bytes>>}
 type HttpResponse{Integer, List<HttpHeader>, Stream<List<Bytes>>}
 
-makeHttpRequest(verb: HttpVerb, url: String) =>
+makeHttpRequest(verb: HttpVerb, url: String): HttpRequest =>
   HttpRequest{verb, url, [], toByteStream("")}
 
 sendHttpRequest(request: HttpRequest): HttpResponse =>
-  #request
+  emit request
   receive HttpResponse
 
 request(verb: HttpVerb, url: String): Coroutine<HttpResponse, HttpRequest, HttpResponse> =>
@@ -373,6 +380,40 @@ incrementValue(data) =>
 --start
 
 --data
+
+title = "Roads Example"
+
+owner.name = "Tom Preston-Werner"
+owner.dob = 1979-05-27T07:32:00-08:00
+
+database = {
+  enabled = True
+  ports = [ 8000, 8001, 8002 ]
+  data = [ ["delta", "phi"], [3.14] ]
+  temp_targets = { cpu = 79.5, case = 72.0 }
+}
+
+servers.alpha = {
+  ip = "10.0.0.1"
+  role = "frontend"
+}
+
+servers.beta = {
+  ip = "10.0.0.2"
+  role = "backend"
+}
+
+myKey = Base64(
+  TWFueSBoYW5kcyBtYW
+  tlIGxpZ2h0IHdvcmsu
+)
+
+// Compact
+title="Roads Example"
+owner={name="Tom Preston-Werner",dob=1979-05-27T07:32:00-08:00}
+database={enabled=True,ports=[8000,8001,8002],data=[["delta","phi"],[3.14]],temp_targets={cpu=79.5,case=72.0}}
+servers={alpha={ip="10.0.0.1",role="frontend"},beta={ip="10.0.0.2",role="backend"}
+myKey=Base64(TWFueSBoYW5kcyBtYWtlIGxpZ2h0IHdvcmsu)
 
 --public
 

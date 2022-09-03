@@ -1,0 +1,104 @@
+Data representation - Json Lite
+Data schema - Types and basic validation constraints
+Data query - Filter/pagi/custom fns/group/sort/aggregate/relationships/joins
+Data mutation - Set, Set if, Math, push/shift/slice/splice/removeKey/removeValue/map
+
+Data storage - Migrations
+Messaging
+
+Version control
+Package management
+Environment management
+Build system
+UI
+Logic
+
+Containers
+Clustering
+Observability platform
+
+
+## Data representation
+
+foo=123
+bar.baz=45.6
+bar.boz.bong=true
+bar.box[]="foo"
+bar.box[]="bar"
+# or
+foo=123 bar.baz=45.6 bar.boz.bong=true bar.box[]="foo" bar.box[]="bar"
+# or
+bar={baz=45.6 boz={bong=true} box=["foo" "bar"]}
+# or
+bar = {
+  baz = 45.6
+  boz {
+    bong = true
+  }
+  box = ["foo" "bar"]
+}
+
+## Data schema
+
+foo:Integer
+bar.baz:Float
+bar.boz.bong:Boolean
+bar.box:[String]
+# or
+foo:Integer bar.baz:Float bar.boz.bong:Boolean bar.box:[String]
+# or
+bar:{baz:Float boz{bong:Boolean} box:[String]}
+# or
+bar: {
+  baz: Float
+  boz {
+    bong: Boolean
+  }
+  box: [String]
+}
+
+## Data query
+
+Query<MySchema>{ bar.box.0.brock: Boolean }
+{ bar.box[] | . ++ { barId = bar.id } | .price < expensive }
+{ bar.box[].price < expensive | take 1 }
+
+{ bar.box.color == color }
+{ bar.box.color != color }
+{ bar.box.color > color }
+{ bar.box.color >= color }
+{ bar.box.color < color }
+{ bar.box.color <= color }
+{ !bar.box.color }
+{ bar.box.color == color && bar.box.price < 10 }
+{ bar.box.color == color !! bar.box.price < 10 }
+{ bar.box.color in ["green", "blue"] }
+{ bar.box.color !in ["green", "blue"] }
+{ bar.box.color subsetOf(["green", "blue"]) }
+{ bar.box.color contains("ee") }
+{ bar.box.color count(.) == 4 }
+{ bar.box.color is Nothing }
+{ bar.box.color !is Nothing }
+
+bar.[String]
+bar.box
+bar.box.*
+bar.box.*.color
+bar.box.0.color
+bar.box->slice(0,1).color
+bar.box->take(2).color
+bar.box->skipEnd(1).color
+bar.box->filter(it.color->exists())
+bar.box->filter(!it.color->exists())
+bar.box->filter(it.color->exists())
+bar.box->filter(it.price < 10)
+bar.box->filter(it.price > expensive)
+bar.box->filter(it.color->matches(/.*Toklin/i))
+bar.box->filter(it.color == "green" || it.color == "blue")
+
+query = db.Customers
+  ->filter(it.name->startsWith("A"))
+  ->orderBy(it.name)
+  ->map(it.name.toUpper())
+
+thirdPage = query.skip(20).take(10)

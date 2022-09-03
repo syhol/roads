@@ -91,7 +91,7 @@ x->reversed()
 search<T: Eq>(m: List<List<T>>, x: T): Optional<{Integer, Integer}> =>
   m->pairs()->tryPick ({i, row}) =>
     row->pairs()->tryPick ({j, column}) =>
-      if column == x then Just{{i, j}} else None{}
+      if column == x then Just{{i, j}} else None
 
 // 21. Swap values
 // Swap values of variables a and b
@@ -114,7 +114,7 @@ s = "ネコ"
 // Share the string value "Alan" with an existing running process which will then display "Hello, Alan"
 personGreeter = spawn () =>
     receive Person{name} => say("Hello, ${name}")
-    self()
+    this()
 });
 
 personGreeter->send(Person{"Alan"})
@@ -173,7 +173,7 @@ x = f(x)
 
 // 34. Create a set of objects
 // Declare and initialize a set x containing objects of type T.
-x = Set<T>{}
+x = Set<T>
 x = <T>[]->toSet()
 
 // 35. First-class function : compose
@@ -224,6 +224,8 @@ s->insert(i, x)
 // Sleep for 5 seconds in current thread, before proceeding with next instructions.
 #SetTimeout{5->Seconds, self}
 receive Timeout => True
+5->Seconds->sleep
+sleep 5->Seconds
 
 // 46. Extract beginning of string (prefix)
 // Create string t consisting of the 5 first characters of string s.
@@ -247,6 +249,7 @@ s->split(" ")
 // 50. Make an infinite loop
 // Write a loop which has no end clause.
 loop() => loop()
+loop()
 
 // 51. Check if map contains key
 // Determine whether map m contains an entry for key k
@@ -421,8 +424,14 @@ addingWillOverflow(x: Integer, y: Integer): Boolean =>
 // 87. Stop program
 // Exit immediatly.
 // If some extra cleanup work is executed by the program runtime (not by the OS itself), describe it.
+type Exit{
+  code: Integer
+  reason: String
+}
 #Exit
 exit()
+#Exit{0, "Success"}
+exit(0, "Success")
 
 // 88. Allocate 1M bytes
 // Create a new bytes buffer buf of size 1,000,000.
@@ -528,77 +537,120 @@ dir = currentWorkingDirectory()
 // Assign to string dir the path of the folder containing the currently running executable.
 // (This is not necessarily the working directory, though.)
 
-// 109. Number of bytes of a type
-// Set n to the number of bytes of a variable t (of type T).
-
 // 110. Check if string is blank
 // Set boolean blank to true if string s is empty, or null, or contains only whitespace ; false otherwise.
+blank = s->trim()->isEmpty()
 
 // 111. Launch other program
 // From current process, run program x with command-line parameters "a", "b".
+createProcess("x", ["a", "b"])
 
 // 112. Iterate over map entries, ordered by keys
 // Print each key k with its value x from an associative array mymap, in ascending order of k.
+mymap
+  ->pairs()
+  ->sortByKey ({key, _}) => key
+  ->each ({key, value}) => say "Key = ${key}, Value = ${value}"
 
 // 113. Iterate over map entries, ordered by values
 // Print each key k with its value x from an associative array mymap, in ascending order of x.
 // Note that multiple entries may exist for the same value x.
+mymap
+  ->pairs()
+  ->sortByKey ({_, value}) => value
+  ->each ({key, value}) => say "Key = ${key}, Value = ${value}"
 
 // 114. Test deep equality
 // Set boolean b to true if objects x and y contain the same values, recursively comparing all referenced elements in x and y.
 // Tell if the code correctly handles recursive types.
+b = x == y
 
 // 115. Compare dates
 // Set boolean b to true if date d1 is strictly before date d2 ; false otherwise.
+b = d1 < d2
 
 // 116. Remove occurrences of word from string
 // Remove all occurrences of string w from string s1, and store the result in s2.
+s2 = s1->replace(w, '')
 
 // 117. Get list size
 // Set n to the number of elements of list x.
+n = x->count()
 
 // 118. List to set
 // Create set y from list x.
 // x may contain duplicates. y is unordered and has no repeated values.
+y = x->toSet()
 
 // 119. Deduplicate list
 // Remove duplicates from list x.
 // Explain if original order is preserved.
+x = x->toSet()->toList()
+x = x->unique
+x = x->sort->deduplicate
 
 // 120. Read integer from stdin
 // Read an integer value from the standard input into variable n
+n = stdin->readLine->tryToInteger()?
 
 // 121. UDP listen and read
 // Listen UDP traffic on port p and read 1024 bytes into buffer b.
+let socket = UdpSocket.bind("localhost", p)?
+b = socket->readBytes(1024)?
 
 // 122. Declare enumeration
 // Create an enumerated type Suit with 4 possible values SPADES, HEARTS, DIAMONDS, CLUBS.
+type Suit = Spades | Hearts | Diamonds | Clubs
 
 // 123. Assert condition
 // Verify that predicate isConsistent returns true, otherwise report assertion violation.
 // Explain if the assertion is executed even in production environment or not.
+if !isConsistent then exit(1, "State consistency violated")
 
 // 124. Binary search for a value in sorted array
 // Write function binarySearch which returns the index of an element having value x in sorted array a, or -1 if no such element.
+binarySearch<T: Eq>(a: List<T>, x: T, i = 0): Integer =>
+  if a->count == 0 then return -1
+  half = a->count / 2
+  a->elementAt(half)->case
+    e if e == x => i + half
+    e if e > x => a->take(half)->binarySearch(x, i)
+    e => a->skip(half + 1)->binarySearch(x, half + i + 1)
 
 // 125. Measure function call duration
 // measure the duration t, in nano seconds, of a call to the function foo. Print this duration.
+start = now()
+foo()
+(now() - start)->say
 
 // 126. Multiple return values
 // Write a function foo that returns a string and a boolean value.
+foo(): {String, Boolean} =>
+  {"bar", true}
 
 // 128. Breadth-first traversing of a tree
 // Call a function f on every node of a tree, in breadth-first prefix order
+type BreadthFirstTree<T>{
+  value: T,
+  children: List<BreadthFirstTree<T>>
+}
+
+implement Mappable
 
 // 129. Breadth-first traversing in a graph
 // Call a function f on every vertex accessible from vertex start, in breadth-first prefix order
+type Vertex<T>{T, List<Integer>}
+type BreadthFirstGraph<T>{Map<Integer, Vertex<T>>}
 
 // 130. Depth-first traversing in a graph
 // Call a function f on every vertex accessible for vertex v, in depth-first prefix order
+type Vertex<T>{T, List<Integer>}
+type DepthFirstGraph<T>{Map<Integer, Vertex<T>>}
 
 // 131. Successive conditions
 // Execute f1 if condition c1 is true, or else f2 if condition c2 is true, or else f3 if condition c3 is true.
 // Don't evaluate a condition when a previous condition was true.
+
 
 // 132. Measure duration of procedure execution
 // Run procedure f, and return the duration of the execution of f.

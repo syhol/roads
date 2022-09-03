@@ -1,0 +1,67 @@
+schema MySchema  # Must be called MySchema.ol
+id = UUID NotPresentWhen([Creating]) AutoGenerate
+password = String NotPresentWhen([Reading])
+foo = Optional<String> Default("bar") JsonField("__foo")
+variantExampleOne = variant { One, Two, Three { String }, Four { count = Integer } }
+variantExampleTwo = MyVariant
+variantExampleThree = [MyVariant]
+variant MyVariant { A, B, C { String }, D { count = Integer } }
+---
+use schema Creating<MySchema>
+require PostgresDatabase{conn}
+foo = "bar"
+password = "12345"
+variantExampleOne = Three { "please" }
+variantExampleTwo = D { count = 3 }
+variantExampleThree = [
+    C { "great" }
+    D { count = 6 }
+    { "why" }
+    { count = 42 }
+]
+
+getFoo() => conn->tabel("myTable", MySchema)->fineOne({ foo = "bar" })
+---
+use schema inline
+id = UUID NotPresentWhen([Creating]) AutoGenerate
+password = String NotPresentWhen([Reading])
+foo = Optional<String> Default("bar") JsonField("__foo")
+variantExampleOne = variant { One, Two, Three { String }, Four { count = Integer } }
+variantExampleTwo = MyVariant
+variant MyVariant { A, B, C { String }, D { count = Integer } }
+for
+
+foo = "bar"
+variantExampleOne = Three { "please" }
+variantExampleTwo = D { count = 3 }
+variantExampleThree = [
+    C { "great" }
+    D { count = 6 }
+    { "why" } # The tag can be inferred
+    { count = 42 } # The tag can be inferred
+]
+
+---
+Query<MySchema> {
+  where = {
+    either [
+        { foo StartsWith("ba") }
+        { foo = "bar" }
+        { foo = None }
+    ]
+    variantExampleOne = One
+    variantExampleOne either [ Two, Four { count > 60 } ]
+  }
+  orderBy = foo
+  skip = 10
+  take = 10
+}
+
+variant Event = {
+    UserCreated { id = String },
+    UserPaymentPlanChanged { id = String,  plan = variant { Free, Paid } }
+    UserDeleted { id = String, softDelete = Boolean }
+}
+
+if no  naming conflicts then Free
+if has naming conflicts then Event.UserPaymentPlanChanged.plan.Free
