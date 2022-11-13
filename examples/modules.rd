@@ -12,7 +12,7 @@ type PostgresConfig{
 bind instanceof Postgres to Postgres(config)
 
 // appConfig.rd
-require config show {resolveDefinition, getHelpText}
+require config only { resolveDefinition, getHelpText }
 
 getDefinition() =>
   return {
@@ -29,11 +29,12 @@ getConfig() => getDefinition()->resolveDefinition()
 getHelpText() => getDefinition()->getHelpText()
 
 // postgresLogger.rd
+require ./postgresProvider only { config }
+
 logQuery(query: PostgresQuery) => print(query.payload)
 
 // main.rd
 bind all in args, environment, config
 import ./appConfig as appConfig
 import ./postgresLogger as postgresLogger
-bind dependency in ./postgresProvider(config = appConfig.getConfig().postgres)
-bind listener postgresLogger.logQuery
+  offer config = appConfig.getConfig().postgres

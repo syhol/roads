@@ -1,11 +1,27 @@
 Checks:
-isAlpha
-isAlphaNumeric
-isDigit
-isSpace
-isLowerCase
-isUpperCase
-isWhitespace
+
+ASCII
+control: String
+space: String
+whitespace: String // space + control
+digit: String
+symbol: String
+lowerCase: String
+upperCase: String
+alpha: String // upperCase + lowerCase
+alphaNumeric: String // upperCase + lowerCase + digit
+printable: String // upperCase + lowerCase + digit + symbol + space
+
+isControl: (String) => Boolean
+isSpace: (String) => Boolean
+isWhitespace: (String) => Boolean
+isDigit: (String) => Boolean
+isSymbol: (String) => Boolean
+isLowerCase: (String) => Boolean
+isUpperCase: (String) => Boolean
+isAlpha: (String) => Boolean
+isAlphaNumeric: (String) => Boolean
+isPrintable: (String) => Boolean
 
 Finding Substrings:
 startsWith // Collections
@@ -47,8 +63,8 @@ padRight
 trim
 trimLeft
 trimRight
-removePrefix // Collections
-removeSuffix // Collections
+withoutPrefix // Collections
+withoutSuffix // Collections
 replaceFirst
 replaceLast
 replaceAll

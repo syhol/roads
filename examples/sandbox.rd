@@ -9,9 +9,9 @@ import type amqp
 require postgres as pg
 require logger
 require https://github.com/antirez/redis/archive/5.0.9.zip as redis
-require GetNow as time
+require type GetNow() => Integer as time
 
-type GetNow() => Integer
+---
 
 type EventQueue{
   connection: AMQPConnection
@@ -184,17 +184,17 @@ test "delete stuff will keep asking until it gets a yes or no" =>
     -->send(ReadLine{"YES"})
     -->shouldProduce(Say{"I'm sorry Dave, I'm afraid I can't do that."})
 
-interface Stringable<T>
+interface CastToString<T>
   toString(T) => String
 
 type User{firstName: String, lastName: String, age: Number}
 
-implement Stringable for User
+implement CastToString for User
   toString({firstName, lastName, age}) => "${firstName} ${lastName}, Age: ${age}"
 
-type Say<T: Stringable>{T}
+type Say<T: CastToString>{T}
 
-say<T: Stringable>(items: T) =>
+say<T: CastToString>(items: T) =>
   items->map
     (item) => item->toString->Say->emit
 

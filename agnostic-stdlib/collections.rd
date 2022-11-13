@@ -1,24 +1,23 @@
 // Built in collections:
 // - List - Eager Sequence
-// - Generator - Lazy sequence
+// - Generator - Lazy pull driven sequence
+// - Observable - Lazy push driven sequence
 // - Map - Key Value
+// - MultiMap - Key Multiple Values
 // - Set - Unique Collection
+// - SortedSet - Unique Collection Sorted By An Integer
 // - String - Text
+
 // 3rd party collections:
-// - Observable
-// - MultiMap
-// - DefaultMap
-// - SortedSet
-// - Counter
 // - Deque
 // - Stack
 // - Queue
-// - PriorityQueue
 // - FixedSizeList
 // - Tree
 // - BinaryTree
 // - Graph
 
+// Collection constructors
 interface CastToList<T>
   toList<E>(T<E>) => List<E>
 
@@ -26,15 +25,12 @@ interface CastToSet<T>
   toSet<E>(T<E>) => Set<E>
 
 interface CastToGenerator<T>
-  toGenerator<E>(T<E>) => List<E>
+  toGenerator<E>(T<E>) => Generator<E>
 
-// Collection constructors
 iterate<T>(T, T => T) => Generator<T>
 repeat<T>(T) => Generator<T>
 cycle<T: Sequence, E>(T<E>) => Generator<E>
 range<T: Number>(T, T) => Generator<T>
-makeSet<E>(List<E>) => Set<E>
-makeMap<K, V>(List<{K, V}>) => Map<K, V>
 [1, 2, 3, 4]
 
 --- Sequences
@@ -70,7 +66,24 @@ interface SyncronousSequence<T: Sequence>
   indicesOf<E: Eq>(T<E>, E) => List<Integer>
   indicesOfSequence<E: Eq>(T<E>, Sequence<E>) => List<Integer>
 
+interface AsyncronousSequence<T: Sequence>
+  resolveNext<E>(T<E>) => Promise<Optional<{E, T<E>}>>
+  resolveEnd<E>(T<E>) => Promise<Optional<{E, T<E>}>>
+  resolveFirst<E>(T<E>) => Promise<Optional<E>>
+  resolveLast<E>(T<E>) => Promise<Optional<E>>
+  resolveStartsWith<E>(T<E>, Sequence<E>) => Promise<Boolean>
+  resolveEndsWith<E>(T<E>, Sequence<E>) => Promise<Boolean>
+  resolveElementAt<E>(T<E>, Integer) => Promise<Optional<E>>
+  resolveIndexOf<E: Eq>(T<E>, E) => Promise<Optional<Integer>>
+  resolveIndexOfSequence<E: Eq>(T<E>, Sequence<E>) => Promise<Optional<Integer>>
+  resolveLastIndexOf<E: Eq>(T<E>, E) => Promise<Optional<Integer>>
+  resolveLastIndexOfSequence<E: Eq>(T<E>, Sequence<E>) => Promise<Optional<Integer>>
+  resolveIndicesOf<E: Eq>(T<E>, E) => Promise<List<Integer>>
+  resolveIndicesOfSequence<E: Eq>(T<E>, Sequence<E>) => Promise<List<Integer>>
+  resolveAll<E>(T<E>) => Promise<List<E>>
+
 Generator implements Sequence SyncronousSequence
+Observable implements Sequence AsyncronousSequence
 List implements Sequence SyncronousSequence
 String implements Sequence SyncronousSequence
 //!! Problem - String has a kind of * where Sequence needs * -> *
@@ -149,10 +162,15 @@ Map implements Countable Emptiable
 
 interface Sortable<T>
   sort<E>(T<E>, (E, E) => Integer) => T<E>
-  reverse(T) => T // To move to the random package?
-  shuffle(T) => T // To move to the random package?
+  reverse(T) => T
+  shuffle(T, seed: Integer) => T
 
----
+--- 
+
+interface Sink<T>
+  add<E>(T<E>, E) => T<E>
+
+--
 
 TBD:
   append ??
