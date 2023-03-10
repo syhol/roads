@@ -1,0 +1,208 @@
+{
+  "fileTypes": [
+    "rd",
+    "roads"
+  ],
+  "name": "Roads",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#keys"
+    }
+  ],
+  "repository": {
+    "array": {
+      "begin": "(?<!\\w)(\\[)\\s*",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.array.roads"
+        }
+      },
+      "comment": "Array",
+      "end": "\\s*(\\])(?!\\w)",
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.array.roads"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#comments"
+        },
+        {
+          "include": "#dataTypes"
+        }
+      ]
+    },
+    "boolean": {
+      "captures": {
+        "1": {
+          "name": "constant.other.boolean.roads"
+        }
+      },
+      "comment": "Boolean",
+      "match": "(?<!\\w)(True|False)(?!\\w)"
+    },
+    "comments": {
+      "captures": {
+        "1": {
+          "name": "comment.line.number-sign.roads"
+        },
+        "2": {
+          "name": "punctuation.definition.comment.roads"
+        }
+      },
+      "comment": "Comments",
+      "match": ".*((//|#|--).*)$"
+    },
+    "dataTypes": {
+      "patterns": [
+        {
+          "include": "#record"
+        },
+        {
+          "include": "#array"
+        },
+        {
+          "include": "#string"
+        },
+        {
+          "include": "#float"
+        },
+        {
+          "include": "#integer"
+        },
+        {
+          "include": "#boolean"
+        }
+      ]
+    },
+    "float": {
+      "captures": {
+        "1": {
+          "name": "constant.numeric.float.roads"
+        }
+      },
+      "comment": "Float, decimal and exponential representation",
+      "match": "(?<!\\w)([\\+\\-]?(0|([1-9](([0-9]|_[0-9])+)?))(?:(?:\\.(0|([1-9](([0-9]|_[0-9])+)?)))?[eE][\\+\\-]?[1-9]_?[0-9]*|(?:\\.[0-9_]*)))(?!\\w)"
+    },
+    "illegal": {
+      "captures": {
+        "1": {
+          "name": "invalid.illegal.roads"
+        }
+      },
+      "comment": "Invalid things -> everything unmatched",
+      "match": "(.*)"
+    },
+    "record": {
+      "begin": "(?<!\\w)(\\{)",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.record.roads"
+        }
+      },
+      "end": "(\\})(?!\\w)",
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.record.roads"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#keys"
+        },
+        {
+          "include": "#dataTypes"
+        }
+      ]
+    },
+    "integer": {
+      "captures": {
+        "1": {
+          "name": "constant.numeric.integer.roads"
+        }
+      },
+      "comment": "Integer (with and without + and - prefixes)",
+      "match": "(?<!\\w)((?:[\\+\\-]?(0|([1-9](([0-9]|_[0-9])+)?))))(?!\\w)"
+    },
+    "keys": {
+      "comment": "Key-value-pairs",
+      "patterns": [
+        {
+          "comment": "Assignments without key are invalid",
+          "match": "(\\s*=.*)$",
+          "name": "invalid.illegal.noKeyDefined.roads"
+        },
+        {
+          "comment": "Assignments without value are unusual",
+          "match": "(\\s*[A-Za-z_\\-][A-Za-z0-9_\\-]*\\s*=)(?=\\s*$)",
+          "name": "invalid.deprecated.noValueGiven.roads"
+        },
+        {
+          "begin": "\\s*([A-Za-z_][A-Za-z0-9_\\.]*|\".+\"|'.+'|[0-9]+)(?:\\[\\])?\\s*(=)\\s*",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.key.roads"
+            },
+            "2": {
+              "name": "punctuation.definition.keyValuePair.roads"
+            }
+          },
+          "end": "($|(?==)|\\,|\\s*(?=\\})|\\s*(//|#|--).*)",
+          "patterns": [
+            {
+              "include": "#comments"
+            },
+            {
+              "include": "#dataTypes"
+            },
+            {
+              "include": "#illegal"
+            }
+          ]
+        }
+      ]
+    },
+    "string": {
+      "patterns": [
+        {
+          "begin": "'''",
+          "comment": "literal string block (no escape sequences)",
+          "end": "'''",
+          "name": "string.quoted.triple.literal.block.roads"
+        },
+        {
+          "comment": "literal string line (no escape sequences)",
+          "match": "'.*?'",
+          "name": "string.quoted.single.literal.line.roads"
+        },
+        {
+          "begin": "\"\"\"",
+          "comment": "basic string block",
+          "end": "\"\"\"",
+          "name": "string.quoted.triple.basic.block.roads",
+          "patterns": [
+            {
+              "match": "\\\\([btnfr\"\\\\ \\n]|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})",
+              "name": "constant.character.escape.roads"
+            },
+            {
+              "match": "\\\\[^btnfr\"\\\\\\n]",
+              "name": "invalid.illegal.escape.roads"
+            }
+          ]
+        },
+        {
+          "comment": "basic string line",
+          "match": "\"[^\"\\\\]*(?:\\\\.[^\"\\\\]*)*\"",
+          "name": "string.quoted.single.basic.line.roads"
+        }
+      ]
+    }
+  },
+  "scopeName": "source.roads",
+  "uuid": "ffffeb76-439f-4c5e-b60f-d8a13606d63d"
+}

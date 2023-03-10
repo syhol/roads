@@ -1,0 +1,17 @@
+PM Commands
+
+Install & Build
+install (fetch all locked packages)
+build (build the package)
+
+Manage Dependencies
+upgrade (upgrade some or all existing dependencies)
+add (add a new dependency)
+remove (remove an existing dependency)
+
+info (show meta and deps of current or remote packages)
+run (local commands and remote package commands)
+shell (devshell)
+search (look for packages)
+
+help (help text)
