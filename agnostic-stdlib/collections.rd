@@ -5,7 +5,7 @@
 // - Map - Key Value
 // - MultiMap - Key Multiple Values
 // - Set - Unique Collection
-// - SortedSet - Unique Collection Sorted By An Integer
+// - SortedSet - Unique Collection Sorted By An Integer. aka Priority Queue
 // - String - Text
 
 // 3rd party collections:
@@ -29,7 +29,7 @@ interface CastToGenerator<T>
 
 iterate<T>(T, T => T) => Generator<T>
 repeat<T>(T) => Generator<T>
-cycle<T: Sequence, E>(T<E>) => Generator<E>
+cycle<T: SyncronousSequence, E>(T<E>) => Generator<E>
 range<T: Number>(T, T) => Generator<T>
 [1, 2, 3, 4]
 
@@ -39,15 +39,13 @@ interface Sequence<T>
   tail<E>(T<E>) => T<E>
   init<E>(T<E>) => T<E>
   take<E>(T<E>, Integer) => T<E>
-  // takeWhile<E>(T<E>, E => Boolean) => T<E>
   takeLast<E>(T<E>, Integer) => T<E>
   skip<E>(T<E>, Integer) => T<E>
-  //skipWhile<E>(T<E>, E => Boolean) => T<E>
   skipLast<E>(T<E>, Integer) => T<E>
   indexed<E>(T<E>) => T<{Integer, E}>
   slice<E>(T<E>, Integer, Integer) => T<E>
-  withoutPrefix<E>(T<E>, FiniteSequence<E>) => T<E>
-  withoutSuffix<E>(T<E>, FiniteSequence<E>) => T<E>
+  withoutPrefix<E>(T<E>, T<E>) => T<E>
+  withoutSuffix<E>(T<E>, T<E>) => T<E>
   chunksOf<E>(T<E>, Integer) => T<List<E>>
   windowsOf<E>(T<E>, Integer) => T<List<E>>
 
@@ -56,31 +54,18 @@ interface SyncronousSequence<T: Sequence>
   end<E>(T<E>) => Optional<{E, T<E>}>
   first<E>(T<E>) => Optional<E>
   last<E>(T<E>) => Optional<E>
+  elementAt<E>(T<E>, Integer) => Optional<E>
   startsWith<E>(T<E>, Sequence<E>) => Boolean
   endsWith<E>(T<E>, Sequence<E>) => Boolean
-  elementAt<E>(T<E>, Integer) => Optional<E>
   indexOf<E: Eq>(T<E>, E) => Optional<Integer>
-  indexOfSequence<E: Eq>(T<E>, Sequence<E>) => Optional<Integer>
+  indexOfSequence<E: Eq>(T<E>, T<E>) => Optional<Integer>
   lastIndexOf<E: Eq>(T<E>, E) => Optional<Integer>
-  lastIndexOfSequence<E: Eq>(T<E>, Sequence<E>) => Optional<Integer>
+  lastIndexOfSequence<E: Eq>(T<E>, T<E>) => Optional<Integer>
   indicesOf<E: Eq>(T<E>, E) => List<Integer>
-  indicesOfSequence<E: Eq>(T<E>, Sequence<E>) => List<Integer>
+  indicesOfSequence<E: Eq>(T<E>, T<E>) => List<Integer>
 
 interface AsyncronousSequence<T: Sequence>
-  resolveNext<E>(T<E>) => Promise<Optional<{E, T<E>}>>
-  resolveEnd<E>(T<E>) => Promise<Optional<{E, T<E>}>>
-  resolveFirst<E>(T<E>) => Promise<Optional<E>>
-  resolveLast<E>(T<E>) => Promise<Optional<E>>
-  resolveStartsWith<E>(T<E>, Sequence<E>) => Promise<Boolean>
-  resolveEndsWith<E>(T<E>, Sequence<E>) => Promise<Boolean>
-  resolveElementAt<E>(T<E>, Integer) => Promise<Optional<E>>
-  resolveIndexOf<E: Eq>(T<E>, E) => Promise<Optional<Integer>>
-  resolveIndexOfSequence<E: Eq>(T<E>, Sequence<E>) => Promise<Optional<Integer>>
-  resolveLastIndexOf<E: Eq>(T<E>, E) => Promise<Optional<Integer>>
-  resolveLastIndexOfSequence<E: Eq>(T<E>, Sequence<E>) => Promise<Optional<Integer>>
-  resolveIndicesOf<E: Eq>(T<E>, E) => Promise<List<Integer>>
-  resolveIndicesOfSequence<E: Eq>(T<E>, Sequence<E>) => Promise<List<Integer>>
-  resolveAll<E>(T<E>) => Promise<List<E>>
+  resolveSequence<E, R>(T<E>, List<E> => R) => Promise<R>
 
 Generator implements Sequence SyncronousSequence
 Observable implements Sequence AsyncronousSequence
@@ -113,7 +98,7 @@ Map implements Concatenatable
 
 --- Scanable types
 
-interface Scanable<T: >
+interface Scanable<T>
   scan<A, B>(T<A>, (B, A) => B) => T<B>
   scanRight<A, B>(T<A>, (A, B) => B) => T<B>
 

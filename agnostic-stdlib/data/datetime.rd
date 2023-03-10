@@ -4,6 +4,7 @@ type DateTime{microseconds: Integer, timezone: Timezone}
 
 type Timezone = String
 type Duration =
+  CompoundDuration{Duration, Duration}
   Microseconds{Integer}
   Seconds{Integer}
   Minutes{Integer}

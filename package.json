@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "engines": {
+      "vscode": ">=0.9.0-pre.1"
+  },
   "directories": {
     "example": "examples"
   },
@@ -10,5 +13,18 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "publisher": "me",
+  "contributes": {
+      "languages": [{
+          "id": "roads",
+          "aliases": ["Roads", "roads"],
+          "extensions": [".roads",".rd"]
+      }],
+      "grammars": [{
+          "language": "roads",
+          "scopeName": "source.roads",
+          "path": "./syntaxes/roads.tmLanguage.json"
+      }]
+  }
 }

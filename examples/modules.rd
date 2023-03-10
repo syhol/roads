@@ -2,7 +2,7 @@
 require Postgres
 require PostgresConfig as config
 
-type PostgresConfig{
+type PostgresConfig {
   username: String
   password: String
   host: String
@@ -24,14 +24,14 @@ getDefinition() =>
     }
   }
 
-getConfig() => getDefinition()->resolveDefinition()
+getConfig() => getDefinition() | resolveDefinition
 
-getHelpText() => getDefinition()->getHelpText()
+getHelpText() => getDefinition() | getHelpText
 
 // postgresLogger.rd
 require ./postgresProvider only { config }
 
-logQuery(query: PostgresQuery) => print(query.payload)
+logQuery(query: PostgresQuery) => print query.payload
 
 // main.rd
 bind all in args, environment, config

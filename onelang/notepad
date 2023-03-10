@@ -85,20 +85,20 @@ bar.box
 bar.box.*
 bar.box.*.color
 bar.box.0.color
-bar.box->slice(0,1).color
-bar.box->take(2).color
-bar.box->skipEnd(1).color
-bar.box->filter(it.color->exists())
-bar.box->filter(!it.color->exists())
-bar.box->filter(it.color->exists())
-bar.box->filter(it.price < 10)
-bar.box->filter(it.price > expensive)
-bar.box->filter(it.color->matches(/.*Toklin/i))
-bar.box->filter(it.color == "green" || it.color == "blue")
+bar.box | slice(0,1).color
+bar.box | take(2).color
+bar.box | skipEnd(1).color
+bar.box | filter(it.color | exists())
+bar.box | filter(!it.color | exists())
+bar.box | filter(it.color | exists())
+bar.box | filter(it.price < 10)
+bar.box | filter(it.price > expensive)
+bar.box | filter(it.color | matches(/.*Toklin/i))
+bar.box | filter(it.color == "green" || it.color == "blue")
 
 query = db.Customers
-  ->filter(it.name->startsWith("A"))
-  ->orderBy(it.name)
-  ->map(it.name.toUpper())
+   | filter(it.name | startsWith("A"))
+   | orderBy(it.name)
+   | map(it.name.toUpper())
 
 thirdPage = query.skip(20).take(10)
