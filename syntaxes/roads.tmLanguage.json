@@ -10,66 +10,18 @@
 			"include": "#whitespace"
 		},
 		{
-			"include": "#keywords"
-		},
-		{
-			"include": "#strings"
-		},
-		{
 			"include": "#declarations"
 		},
 		{
-			"include": "#constants"
-		},
-		{
-			"include": "#comments"
-		},
-		{
-			"include": "#primitives"
+			"include": "#value"
 		}
 	],
 	"repository": {
-		"keywords": {
-			"patterns": [
-				{
-					"name": "keyword.control.roads",
-					"match": "\\b(if|in|for|let)\\b"
-				},
-				{
-					"name": "keyword.value.roads",
-					"match": "\\b(null|true|false)\\b"
-				},
-				{
-					"name": "keyword.preamble.roads",
-					"match": "\\b(package|import)\\b"
-				},
-				{
-					"match": "[\\+\\-\\*]|/(?![/*])",
-					"name": "keyword.operator.roads"
-				},
-				{
-					"match": "(?<![\\p{L}\\p{Nd}_\\$\\#])(?:div|mod|quo|rem)(?![\\p{L}\\p{Nd}_\\$\\#])",
-					"name": "keyword.operator.word.roads"
-				},
-				{
-					"match": "=[=~]|![=~]|<=|>=|[<](?![-=])|[>](?![=])",
-					"name": "keyword.operator.comparison.roads"
-				},
-				{
-					"match": "&{2}|\\|{2}|!(?![=~])",
-					"name": "keyword.operator.logical.roads"
-				},
-				{
-					"match": "&(?!&)|\\|(?!\\|)",
-					"name": "keyword.operator.set.roads"
-				}
-			]
-		},
 		"declarations": {
 			"patterns": [
 				{
-					"name": "variable.parameter.roads",
-					"match": "([A-Za-z_][A-Za-z0-9_\\.]*|\".+\"|'.+'|[0-9]+)(?:\\[\\])?\\s="
+					"name": "variable.other.roads",
+					"match": "([A-Za-z_][A-Za-z0-9_\\.]*|\".+\"|'.+'|[0-9]+)(?:\\[\\])?\\s*(=)\\s*"
 				}
 			]
 		},
@@ -115,27 +67,19 @@
 				}
 			]
 		},
-		"constants": {
+		"number": {
 			"patterns": [
 				{
-					"match": "(?<![\\p{L}\\p{Nd}_\\$\\#])null(?![\\p{L}\\p{Nd}_\\$\\#])",
-					"name": "constant.language.null.roads"
+					"match": "\\b[+-]?([0-9][0-9_]*)\\b",
+					"name": "constant.numeric.integer.roads"
 				},
 				{
-					"match": "\\b((0(x|X)[0-9a-fA-F_]*)|(([0-9][0-9_]*\\.[0-9][0-9_]*)|(\\.[0-9][0-9_]*))((e|E)(\\+|-)?[0-9][0-9_]*)?|[0-9][0-9_]*)([LlFfDd]|UL|ul)?\\b",
-					"name": "constant.numeric.roads"
+					"match": "\\b[+-]?([0-9][0-9_]*\\.[0-9][0-9_]*)|(\\.[0-9][0-9_]*)\\b",
+					"name": "constant.numeric.float.roads"
 				}
 			]
 		},
-		"primitives": {
-			"patterns": [
-				{
-					"name": "storage.type.roads",
-					"match": "\\b(null|bool|string|bytes|number|int|float|struct|list)\\b"
-				}
-			]
-		},
-		"strings": {
+		"string": {
 			"name": "string.quoted.double.roads",
 			"begin": "\"",
 			"end": "\"",
@@ -148,6 +92,19 @@
 		},
 		"whitespace": {
 			"match": "[ \\t\\r\\n]+"
+		},
+		"value": {
+			"patterns": [
+				{
+					"include": "#number"
+				},
+				{
+					"include": "#string"
+				},
+				{
+					"include": "#comments"
+				}
+			]
 		}
 	}
 }
