@@ -9,17 +9,17 @@
 			"include": "#whitespace"
 		},
 		{
-			"include": "#declaration"
+			"include": "#key-value"
 		},
 		{
 			"include": "#value"
 		}
 	],
 	"repository": {
-		"declaration": {
+		"key-value": {
 			"patterns": [
 				{
-					"name": "meta.declaration.roads",
+					"name": "meta.key-value.roads",
 					"match": "((?:[A-Za-z_][A-Za-z0-9_]*|\".+\"|'.+')(?:\\.(?:[A-Za-z_][A-Za-z0-9_]*|\".+\"|'.+'))*(?:\\[\\])?)\\s*(=)\\s*",
 					"captures": {
 						"1": {
@@ -77,15 +77,15 @@
 		"number": {
 			"patterns": [
 				{
-					"match": "\\b([0-9][0-9_]*)?(\\.[0-9][0-9_]*)(\\.[0-9][0-9_]*)+\\b",
+					"match": "-?\\b([0-9][0-9_]*)?(\\.[0-9][0-9_]*)(\\.[0-9][0-9_]*)+\\b",
 					"name": "invalid.illegal.number.roads"
 				},
 				{
-					"match": "\\b([0-9][0-9_]*\\.[0-9][0-9_]*)|(\\.[0-9][0-9_]*)\\b",
+					"match": "-?\\b([0-9][0-9_]*\\.[0-9][0-9_]*)|(\\.[0-9][0-9_]*)\\b",
 					"name": "constant.numeric.float.roads"
 				},
 				{
-					"match": "\\b([0-9][0-9_]*)\\b",
+					"match": "-?\\b([0-9][0-9_]*)\\b",
 					"name": "constant.numeric.integer.roads"
 				}
 			]
@@ -147,7 +147,7 @@
 			},
 			"patterns": [
 				{
-					"include": "#declaration"
+					"include": "#key-value"
 				},
 				{
 					"include": "#value"

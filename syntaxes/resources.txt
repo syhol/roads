@@ -3,3 +3,4 @@ https://stackoverflow.com/questions/69876477/how-would-i-make-a-vscode-syntax-hi
 https://github.com/ngkcl/vscode-cuelang/blob/master/syntaxes/cue.tmLanguage.json
 https://github.com/shikijs/shiki/blob/main/packages/shiki/languages/toml.tmLanguage.json
 https://github.com/microsoft/vscode/blob/main/extensions/typescript-basics/syntaxes/TypeScriptReact.tmLanguage.json
+https://macromates.com/manual/en/language_grammars
