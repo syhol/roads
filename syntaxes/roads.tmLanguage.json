@@ -1,5 +1,4 @@
 {
-	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
 	"name": "Roads",
 	"scopeName": "source.roads",
 	"fileTypes": [
@@ -10,18 +9,26 @@
 			"include": "#whitespace"
 		},
 		{
-			"include": "#declarations"
+			"include": "#declaration"
 		},
 		{
 			"include": "#value"
 		}
 	],
 	"repository": {
-		"declarations": {
+		"declaration": {
 			"patterns": [
 				{
-					"name": "variable.other.roads",
-					"match": "([A-Za-z_][A-Za-z0-9_\\.]*|\".+\"|'.+'|[0-9]+)(?:\\[\\])?\\s*(=)\\s*"
+					"name": "meta.declaration.roads",
+					"match": "((?:[A-Za-z_][A-Za-z0-9_]*|\".+\"|'.+')(?:\\.(?:[A-Za-z_][A-Za-z0-9_]*|\".+\"|'.+'))*(?:\\[\\])?)\\s*(=)\\s*",
+					"captures": {
+						"1": {
+							"name": "variable.other.roads"
+						},
+						"2": {
+							"name": "keyword.operator.assignment.roads"
+						}
+					}
 				}
 			]
 		},
@@ -70,12 +77,16 @@
 		"number": {
 			"patterns": [
 				{
-					"match": "\\b[+-]?([0-9][0-9_]*)\\b",
-					"name": "constant.numeric.integer.roads"
+					"match": "\\b([0-9][0-9_]*)?(\\.[0-9][0-9_]*)(\\.[0-9][0-9_]*)+\\b",
+					"name": "invalid.illegal.number.roads"
 				},
 				{
-					"match": "\\b[+-]?([0-9][0-9_]*\\.[0-9][0-9_]*)|(\\.[0-9][0-9_]*)\\b",
+					"match": "\\b([0-9][0-9_]*\\.[0-9][0-9_]*)|(\\.[0-9][0-9_]*)\\b",
 					"name": "constant.numeric.float.roads"
+				},
+				{
+					"match": "\\b([0-9][0-9_]*)\\b",
+					"name": "constant.numeric.integer.roads"
 				}
 			]
 		},
@@ -90,8 +101,67 @@
 				}
 			]
 		},
+		"tag": {
+			"match": "((?:[A-Z][a-z0-9]+)(?:(?:\\d)|(?:[A-Z0-9][a-z0-9]+))*(?:[A-Z])?)",
+			"name": "entity.name.type.roads"
+		},
+		"list": {
+			"name": "meta.list.literal.roads",
+			"begin": "\\s*(\\[)",
+			"beginCaptures": {
+				"1": {
+					"name": "meta.brace.square.roads"
+				}
+			},
+			"end": "\\]",
+			"endCaptures": {
+				"0": {
+					"name": "meta.brace.square.roads"
+				}
+			},
+			"patterns": [
+				{
+					"include": "#value"
+				},
+				{
+					"include": "#comma"
+				}
+			]
+		},
+		"record": {
+			"name": "meta.record.literal.roads",
+			"begin": "\\s*((?:[A-Z][a-z0-9]+)(?:(?:\\d)|(?:[A-Z0-9][a-z0-9]+))*(?:[A-Z])?)?(\\{)",
+			"beginCaptures": {
+				"1": {
+					"name": "entity.name.type.roads"
+				},
+				"2": {
+					"name": "meta.brace.curly.roads"
+				}
+			},
+			"end": "\\}",
+			"endCaptures": {
+				"0": {
+					"name": "meta.brace.curly.roads"
+				}
+			},
+			"patterns": [
+				{
+					"include": "#declaration"
+				},
+				{
+					"include": "#value"
+				},
+				{
+					"include": "#comma"
+				}
+			]
+		},
 		"whitespace": {
 			"match": "[ \\t\\r\\n]+"
+		},
+		"comma": {
+			"match": "\\,"
 		},
 		"value": {
 			"patterns": [
@@ -100,6 +170,15 @@
 				},
 				{
 					"include": "#string"
+				},
+				{
+					"include": "#tag"
+				},
+				{
+					"include": "#list"
+				},
+				{
+					"include": "#record"
 				},
 				{
 					"include": "#comments"

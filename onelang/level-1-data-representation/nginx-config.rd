@@ -11,12 +11,13 @@ http.include = "/etc/nginx/proxy.conf"
 http.include = "/etc/nginx/fastcgi.conf"
 http.index = ["index.html", "index.htm", "index.php"]
 
-http.default_type = "application/octet-stream" 
+http.default_type = "application/octet-stream"
 http.log_format.main = """
   $remote_addr - ${remote_user} [$time_local]  $status
   "$request" $body_bytes_sent "$http_referer"
   "$http_user_agent" "$http_x_forwarded_for"
   """
+
 http.access_log = { path = "logs/access.log", format = "main" }
 http.sendfile = True
 http.tcp_nopush = True
