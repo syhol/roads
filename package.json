@@ -1,30 +1,77 @@
 {
-  "name": "roads",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "engines": {
-      "vscode": ">=0.9.0-pre.1"
-  },
-  "directories": {
-    "example": "examples"
-  },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "",
-  "license": "ISC",
-  "publisher": "me",
-  "contributes": {
-      "languages": [{
-          "id": "roads",
-          "aliases": ["Roads", "roads"],
-          "extensions": [".roads",".rd"]
-      }],
-      "grammars": [{
-          "language": "roads",
-          "scopeName": "source.roads",
-          "path": "./syntaxes/roads.tmLanguage.json"
-      }]
-  }
+    "name": "roads",
+    "version": "1.0.0",
+    "description": "",
+    "engines": {
+        "vscode": ">=0.9.0-pre.1"
+    },
+    "directories": {
+        "example": "examples"
+    },
+    "main": "./client/out/extension",
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -b",
+        "watch": "tsc -b -w",
+        "lint": "eslint ./client/src ./server/src --ext .ts,.tsx",
+        "postinstall": "cd client && npm install && cd ../server && npm install && cd .."
+    },
+    "devDependencies": {
+        "@types/mocha": "^9.1.0",
+        "@types/node": "^16.11.7",
+        "@typescript-eslint/eslint-plugin": "^5.54.0",
+        "@typescript-eslint/parser": "^5.54.0",
+        "eslint": "^8.35.0",
+        "mocha": "^9.2.1",
+        "typescript": "^4.9.5"
+    },
+    "author": "",
+    "license": "ISC",
+    "publisher": "me",
+    "contributes": {
+        "languages": [
+            {
+                "id": "roads",
+                "aliases": [
+                    "Roads",
+                    "roads"
+                ],
+                "extensions": [
+                    ".roads",
+                    ".rd"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "roads",
+                "scopeName": "source.roads",
+                "path": "./syntaxes/roads.tmLanguage.json"
+            }
+        ],
+        "configuration": {
+			"type": "object",
+			"title": "Roads configuration",
+			"properties": {
+				"roads.maxNumberOfProblems": {
+					"scope": "resource",
+					"type": "number",
+					"default": 100,
+					"description": "Controls the maximum number of problems produced by the server."
+				},
+				"roads.trace.server": {
+					"scope": "window",
+					"type": "string",
+					"enum": [
+						"off",
+						"messages",
+						"verbose"
+					],
+					"default": "off",
+					"description": "Traces the communication between VS Code and the language server."
+				}
+			}
+		}
+    }
 }
