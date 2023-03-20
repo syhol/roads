@@ -3,17 +3,25 @@ const os = require('os');
 // Token Group Definition
 
 const tokenGroups = {
-    T_IF: handleSymbol('if'),
-    T_THEN: handleSymbol('then'),
-    T_ELSE: handleSymbol('else'),
-    T_IDENTIFIER: handleCharSet('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'),
-    T_PARENTHESIS: handleCharSet('()'),
-    T_NUMBER: handleCharSet('1234567890'),
-    T_FN_DEFINE_ARROW: handleSymbol('=>'),
-    T_FN_INVOKE_ARROW: handleSymbol('->'),
-    T_OPERATOR: handleCharSet('=>+.?/!@#$%^&*|'),
-    T_COMMA: handleCharSet(','),
-    T_QUOTE: handleCharSet('"'),
+    // T_IF: handleSymbol('if'),
+    // T_THEN: handleSymbol('then'),
+    // T_ELSE: handleSymbol('else'),
+    // T_IDENTIFIER: handleCharSet('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'),
+    T_STRING: handleString,
+    T_TAG: handleRegex(/^((?:[A-Z][a-z0-9]+)(?:(?:\d)|(?:[A-Z0-9][a-z0-9]+))*(?:[A-Z])?)/),
+    T_KEY: handleRegex(/^((?:[A-Za-z_][A-Za-z0-9_]*|".+"|'.+')(?:\.(?:[A-Za-z_][A-Za-z0-9_]*|".+"|'.+'))*(?:\[\])?)/),
+    // T_PARENTHESIS: handleCharSet('()'),
+    T_SQUARE_PARENTHESIS_OPEN: handleSymbol('['),
+    T_SQUARE_PARENTHESIS_CLOSE: handleSymbol(']'),
+    T_CURLY_PARENTHESIS_OPEN: handleSymbol('{'),
+    T_CURLY_PARENTHESIS_CLOSE: handleSymbol('}'),
+    // T_NUMBER: handleCharSet('1234567890'),
+    // T_FN_DEFINE_ARROW: handleSymbol('=>'),
+    // T_FN_INVOKE_ARROW: handleSymbol('->'),
+    T_DOUBLE_SLASH_COMMENT: handleRegex(/^(\/\/).*/),
+    T_NUMBER_SIGN_COMMENT: handleRegex(/^(\#).*/),
+    T_ASSIGNMENT: handleSymbol('='),
+    T_COMMA: handleSymbol(','),
     T_WHITESPACE: handleCharSet(' \t\f\r\n'),
     T_UNKNOWN: unknown,
 };
@@ -21,8 +29,8 @@ const tokenGroups = {
 function tokenise(input) {
   let inputPointer = {
     data: input,
-    line: 1,
-    column: 1,
+    line: 0,
+    character: 0,
     tokens: [],
   };
   while (inputPointer.data.length > 0) {
@@ -41,25 +49,17 @@ function tokenise(input) {
 
 // inputPointer helpers
 
-function pos(inputPointer) {
-  return {
-    line: inputPointer.line,
-    column: inputPointer.column
-  };
-}
-
 function posMinusOne(inputPointer) {
-  const newPos = pos(inputPointer);
-  return newPos.column === 1
-    ? { line: newPos.line - 1, column: inputPointer.tokens[inputPointer.tokens.length - 1].end.column + 1 }
-    : { line: newPos.line, column: newPos.column - 1 }
+  return inputPointer.character === 0
+    ? { line: inputPointer.line - 1, character: inputPointer.tokens[inputPointer.tokens.length - 1].end.character + 1 }
+    : { line: inputPointer.line, character: inputPointer.character - 1 }
 }
 
 function makeToken(type, inputPointer) {
   return {
     type,
     value: '',
-    start: pos(inputPointer)
+    start: { line: inputPointer.line, character: inputPointer.character }
   };
 }
 
@@ -78,9 +78,9 @@ function updatePointer(inputPointer, removedChars) {
   for (const char of removedChars.split('')) {
     if (char === os.EOL) {
       inputPointer.line++;
-      inputPointer.column = 1;
+      inputPointer.character = 0;
     } else {
-      inputPointer.column++;
+      inputPointer.character++;
     }
   }
 }
@@ -111,11 +111,55 @@ function handleSymbol(symbol) {
   }
 }
 
-function unknown(inputPointer, token) {
+function handleRegex(regex) {
+  return (inputPointer, token) => {
+    const result = inputPointer.data.match(regex);
+    if (!result) {
+      return false;
+    }
+    token.value += takeChars(inputPointer, result[0].length);
+    return token;
+  }
+}
+
+function handleString(inputPointer, token) {
+  let test = peekChars(inputPointer);
+  if (test !== '"') {
+    return false;
+  }
+  token.value += takeChars(inputPointer);
+  let isEscaping = false;
+  while ((peekChars(inputPointer) !== '"' || isEscaping) && inputPointer.data.length > 0) {
+    const next = takeChars(inputPointer);
+    isEscaping = (next === '\\' && !isEscaping);
+    token.value += next;
+  }
   token.value += takeChars(inputPointer);
   return token;
 }
 
+function unknown(inputPointer, token) {
+  const lastToken = inputPointer.tokens[inputPointer.tokens.length - 1];
+  if (lastToken.type === 'T_UNKNOWN') {
+    lastToken.value += takeChars(inputPointer);
+    return false;
+  }
+  token.value += takeChars(inputPointer);
+  return token;
+}
+
+function prettyTokens(tokens) {
+  for (token of tokens) {
+    const value = token.value
+      .replace(/\n/g,'\\n')
+      .replace(/\t/g,'\\t')
+      .replace(/\f/g,'\\f')
+      .replace(/\r/g,'\\r')
+    console.log(token.type.padStart(27), `|${value}|`);
+  }
+}
+
 module.exports = {
-  tokenise
+  tokenise,
+  prettyTokens,
 };
