@@ -2,7 +2,7 @@ toString
 toList
 toMap
 toInteger
-toDecimal
+toFloat
 
 say
 print

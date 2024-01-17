@@ -49,12 +49,12 @@ take // Collections
 takeLast // Collections
 skip // Collections
 skipLast // Collections
-substring // Collections
+slice // Collections
 
 Sorting:
-shuffle
-reverse
-sort
+shuffle // Collections
+reverse // Collections
+sort // Collections
 
 Misc:
 pad
@@ -68,7 +68,7 @@ withoutSuffix // Collections
 replaceFirst
 replaceLast
 replaceAll
-replaceRange#
+replaceRange
 
 Very Misc:
 join

@@ -1,9 +1,9 @@
-interface CastToURI<T>
-  toURI: (T) => Result<URI>
+interface CastToUri<T>
+  toUri: (T) => Result<Uri>
 
-implement CastToString for URI
+implement CastToString for Uri
 
-type URI {
+type Uri {
     scheme: String
     userinfo: String
     host: String
@@ -12,3 +12,6 @@ type URI {
     query: String
     fragment: String
 }
+
+QueryString.encode(Map) => String
+QueryString.decode(String) => Map
