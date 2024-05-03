@@ -6,6 +6,8 @@
 // - MultiMap - Key Multiple Values
 // - Set - Unique Collection
 // - SortedSet - Unique Collection Sorted By An Integer. aka Priority Queue
+// - Array - ??
+// - Slice - A view of an Array
 // - String - Text
 
 // 3rd party collections:
@@ -21,11 +23,20 @@
 interface CastToList<T>
   toList<E>(T<E>) => List<E>
 
+interface CastToGenerator<T>
+  toGenerator<E>(T<E>) => Generator<E>
+
+interface CastToMap<K, T>
+  toMap<E>(T<E>) => Map<E>
+
+interface CastToMultiMap<T>
+  toMultiMap<E>(T<E>) => MultiMap<E>
+
 interface CastToSet<T>
   toSet<E>(T<E>) => Set<E>
 
-interface CastToGenerator<T>
-  toGenerator<E>(T<E>) => Generator<E>
+interface CastToSortedSet<T>
+  toSortedSet<E>(T<E>) => SortedSet<E>
 
 iterate<T>(T, T => T) => Generator<T>
 repeat<T>(T) => Generator<T>
@@ -33,23 +44,35 @@ cycle<T: SyncronousSequence, E>(T<E>) => Generator<E>
 range<T: Number>(T, T) => Generator<T>
 [1, 2, 3, 4]
 
+implement Sequence<Map<K, V>, [K, V]> for Map<K, V>
+  
+implement Sequence<V> for Map<K, V> as ValueSequence
+  tail(T<E>) => T<E>
+
 --- Sequences
 
-interface Sequence<T>
-  tail<E>(T<E>) => T<E>
-  init<E>(T<E>) => T<E>
-  take<E>(T<E>, Integer) => T<E>
-  takeLast<E>(T<E>, Integer) => T<E>
-  skip<E>(T<E>, Integer) => T<E>
-  skipLast<E>(T<E>, Integer) => T<E>
-  indexed<E>(T<E>) => T<{Integer, E}>
-  slice<E>(T<E>, Integer, Integer) => T<E>
-  withoutPrefix<E>(T<E>, T<E>) => T<E>
-  withoutSuffix<E>(T<E>, T<E>) => T<E>
-  chunksOf<E>(T<E>, Integer) => T<List<E>>
-  windowsOf<E>(T<E>, Integer) => T<List<E>>
+interface Sequence<T, E>
+  type T
+  type E
 
-interface SyncronousSequence<T: Sequence>
+  tail(T<E>) => T<E>
+  init(T<E>) => T<E>
+  take(T<E>, Integer) => T<E>
+  takeLast(T<E>, Integer) => T<E>
+  skip(T<E>, Integer) => T<E>
+  skipLast(T<E>, Integer) => T<E>
+  indexed(T<E>) => T<{Integer, E}>
+  slice(T<E>, Integer, Integer) => T<E>
+  withoutPrefix(T<E>, T<E>) => T<E>
+  withoutSuffix(T<E>, T<E>) => T<E>
+  chunksOf(T<E>, Integer) => T<List<E>>
+  windowsOf(T<E>, Integer) => T<List<E>>
+
+interface SyncronousSequence<T, E>
+  type T
+  type E
+  extends Sequence<E>
+
   next<E>(T<E>) => Optional<{E, T<E>}>
   end<E>(T<E>) => Optional<{E, T<E>}>
   first<E>(T<E>) => Optional<E>
@@ -67,10 +90,6 @@ interface SyncronousSequence<T: Sequence>
 interface AsyncronousSequence<T: Sequence>
   resolveSequence<E, R>(T<E>, List<E> => R) => Promise<R>
 
-Generator implements Sequence SyncronousSequence
-Observable implements Sequence AsyncronousSequence
-List implements Sequence SyncronousSequence
-String implements Sequence SyncronousSequence
 //!! Problem - String has a kind of * where Sequence needs * -> *
 
 --- Monads
@@ -89,12 +108,6 @@ interface Mappable<T>
 interface Expandable<T: Mappable & Concatenatable>
   filter<E>(T<E>, E => Boolean) => T<E>
   flatMap<A, B>(T<A>, A => T<B>) => T<B>
-
-Generator implements Concatenatable Mappable Expandable
-List implements Concatenatable Mappable Expandable
-Set implements Concatenatable Mappable Expandable
-String implements Concatenatable
-Map implements Concatenatable
 
 --- Scanable types
 
@@ -115,7 +128,7 @@ interface Membership<T>
   containsAllSequences<E: Eq, Q: Foldable<Sequence<E>>>(T<E>, Q) => Boolean
   containsAnySequence<E: Eq, Q: Foldable<Sequence<E>>>(T<E>, Q) => Boolean
 
-interface Foldable<T: CastToList & Countable & Emptiable & Membership>
+interface Foldable<T: CastToList & Countable & Emptiable & Membership & Scanable>
   reduce<A, B>(T<A>, (B, A) => B) => Optional<B>
   reduceRight<A, B>(T<A>, (A, B) => B) => Optional<B>
   fold<A, B>(T<A>, B, (B, A) => B) => B
@@ -137,12 +150,6 @@ implement Countable for Foldable
 implement Countable for String
   count(countable) => countable->getCharacters->count
 
-Generator implements Countable Emptiable Membership Foldable
-List implements Countable Emptiable Membership Foldable
-Set implements Countable Emptiable Membership Foldable
-String implements Countable Emptiable
-Map implements Countable Emptiable
-
 --- Sort
 
 interface Sortable<T>
@@ -150,7 +157,7 @@ interface Sortable<T>
   reverse(T) => T
   shuffle(T, seed: Integer) => T
 
---- 
+--- Sink
 
 interface Sink<T>
   add<E>(T<E>, E) => T<E>
@@ -170,27 +177,63 @@ TBD:
   break?
   partition
 
-type StateRequest<T> = UpdateState{T => T} | GetState
-type CurrentState<T>{T}
-type State<T> = Coroutine<StateRequest<T>, CurrentResponse<T>, Never>
+type Generator<T> = () => Yield<T>
+type Yield<T>
+  Next{T, Generator<T>}
+  Done
 
-makeState<T>(value: T): State<T> =>
-  spawn (value) =>
-    receive
-      SetState{newValue} => self(newValue)
-      GetState =>
-        #CurrentState{value}
-        self(value)
+type Observable<T> = (Emit<T> => {}) => {}
+type Emit<T>
+  Next{T}
+  Done
 
-getState<T>(state: State<T>): T =>
-  state
-    ->send(GetState)
-    ->receive CurrentState{value} => value
+type Coroutine<I, O> = (I) => Resume<I, O>
+type Resume<I, O>
+  Next{O, Coroutine<I, O>}
+  Done
 
-setState<T>(state: State<T>, update: T => T): {} => state->send(SetState{value})
+type StateRequest<T> = Set{T} | Update{T => T} | Get
+type State<T> = Action<T> => T
+makeState
+makeThreadLocalState
+makePersistentState
 
-type Generator<T>{
-  realised: State<List<T>>
-  done: Boolean
-  next() => Optional<T>
-}
+
+List<T> implements
+  Sequence SyncronousSequence
+  Concatenatable Mappable Expandable
+  Countable Emptiable
+  Membership
+  Foldable
+  Sortable
+Generator<T> implements
+  Sequence SyncronousSequence
+  Concatenatable Mappable Expandable
+  Countable Emptiable
+  Membership
+  Foldable
+Observable<T> implements
+  Sequence AsyncronousSequence
+  Concatenatable Mappable Expandable
+Set<T> implements
+  Concatenatable Mappable Expandable
+  Countable Emptiable
+  Membership
+  Foldable
+SortedSet<T> implements
+  Sequence SyncronousSequence
+  Concatenatable Mappable Expandable
+  Countable Emptiable
+  Membership
+  Foldable
+String implements
+  Sequence SyncronousSequence
+  Concatenatable
+  Countable Emptiable
+  Sortable
+Map<K, V> implements
+  Concatenatable
+  Countable Emptiable
+MultiMap<K, V> implements
+  Concatenatable
+  Countable Emptiable
