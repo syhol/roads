@@ -1,6 +1,9 @@
 Json.encode
 Json.decode
 
+Jsonc.encode
+Jsonc.decode
+
 MessagePack.encode
 MessagePack.decode
 
@@ -9,6 +12,9 @@ Yaml.decode
 
 Csv.encode
 Csv.decode
+
+Tsv.encode
+Tsv.decode
 
 Xml.encode
 Xml.decode
