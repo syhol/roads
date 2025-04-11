@@ -6,6 +6,14 @@ toFloat
 
 say
 print
+printError
+
+trace
+debug
+info
+warn
+error
+fatal
 
 Optional
 Result

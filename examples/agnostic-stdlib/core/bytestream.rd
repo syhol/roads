@@ -17,3 +17,5 @@ interface Seeker
   seekFromCurrent(Number) => Result<Number>
 
 copy(Reader, Writer) => Result<Number>
+readLines(Reader) => Generator<String>
+

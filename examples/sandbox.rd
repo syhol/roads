@@ -160,9 +160,9 @@ requestReply() =>
 confirm(question: String) =>
   say "${question} (y/n)"
   stdin | readLine | toLowerCase | case
-    ("y"|"yes") => True
-    ("n"|"no") => False
-    Else =>
+    ("y" or "yes") => True
+    ("n" or "no") => False
+    _ =>
       say "Please be clear: yes or no"
       confirm question
 
